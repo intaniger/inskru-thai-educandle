@@ -1,0 +1,10 @@
+{
+  "hosting": {
+    "public": "out-wasm",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}

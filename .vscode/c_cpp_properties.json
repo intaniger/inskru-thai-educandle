@@ -1,0 +1,17 @@
+{
+  "configurations": [
+    {
+      "name": "Linux",
+      "includePath": [
+        "${default}",
+        "/home/intaniger/Documents/emsdk/upstream/emscripten/system/**"
+      ],
+      "defines": [],
+      "compilerPath": "/opt/intel/compilers_and_libraries_2020.1.217/linux/bin/clang",
+      "cStandard": "c11",
+      "cppStandard": "c++14",
+      "intelliSenseMode": "linux-clang-x64"
+    }
+  ],
+  "version": 4
+}
