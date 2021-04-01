@@ -27,7 +27,7 @@ val getCandlesIndividuallyUniformPtr()
 
 val getCandlesIndividuallyLightPosition()
 {
-  return val(typed_memory_view(2, candlesMgr->lightPositions));
+  return val(typed_memory_view(candlesMgr->lightNumber * 2, candlesMgr->lightPositions));
 }
 
 val getCandlesIndividuallyRenderRectangle()
@@ -42,12 +42,12 @@ int candleResetIndex()
 
 int candleGetCount()
 {
-  return candlesMgr->getCandleCounts();
+  return candlesMgr->getRenderGroupCounts();
 }
 
 int candleRenderNext()
 {
-  return candlesMgr->renderNextCandle();
+  return candlesMgr->renderNextGroup();
 }
 
 int renderRegionVertices()

@@ -211,7 +211,13 @@ const renderEachCandle = (
   lumUniformLoc,
   radiusUniformLoc,
 ) => {
+  Module.candleRenderNext()
   const uniforms = Module.getCandlesIndividuallyUniformPtr()
+  // console.log(
+  //   uniforms,
+  //   Module.getCandlesIndividuallyLightPosition(),
+  //   Module.getCandlesIndividuallyRenderRectangle(),
+  // )
 
   gl.uniform1i(lnUniformLoc, uniforms[0])
   gl.uniform1f(lumUniformLoc, uniforms[1])
@@ -228,7 +234,6 @@ const renderEachCandle = (
   gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, indices)
 
   gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0)
-  Module.candleRenderNext()
 }
 
 const updateCandleCenterAndScale = (gl, centerUniformLoc, scaleUniformLoc) => {

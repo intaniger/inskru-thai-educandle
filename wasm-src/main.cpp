@@ -67,8 +67,6 @@ val initialize(uintptr_t shapes_data_addr, float screenWidth, float screenHeight
       regionMgr->getWidth(), regionMgr->getHeight(),
       initCenter, initScale);
 
-  candlesMgr->registerCandle(new Candle(initCenter));
-
   view = new ScreenViewState(
       initCenter, initScale,
       regionMgr->getWidth() / regionMgr->getHeight(),
@@ -105,7 +103,7 @@ void handleMoveEvent(float deltaX, float deltaY)
 void handleClickEvent(float mouseX, float mouseY)
 {
   float *ctxPos = view->getContextPosition(mouseX, mouseY);
-  candlesMgr->registerCandle(new Candle(ctxPos));
+  candlesMgr->registerCandle(ctxPos[0], ctxPos[1]);
 }
 
 EMSCRIPTEN_BINDINGS(MAIN)

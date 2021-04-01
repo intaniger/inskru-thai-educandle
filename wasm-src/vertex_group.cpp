@@ -1,3 +1,12 @@
+#ifndef VERTEX_GROUP
+#define VERTEX_GROUP
+#endif
+
+#define NOTHING_CHANGED 0
+#define TOPLEFT_CHANGED 1
+#define BOTTOMRIGHT_CHANGED 2
+#define BOTH_CHANGED TOPLEFT_CHANGED | BOTTOMRIGHT_CHANGED
+
 class VertexGroup
 {
 private:
@@ -17,7 +26,7 @@ public:
                                               },
                                               start{start} {};
   void EndAt(float *end);
-  void AddVertex(float x, float y);
+  int AddVertex(float x, float y);
   float *getBoundary();
   ~VertexGroup();
 };
@@ -26,16 +35,29 @@ void VertexGroup::EndAt(float *end)
   this->end = end;
 }
 
-void VertexGroup::AddVertex(float x, float y)
+int VertexGroup::AddVertex(float x, float y)
 {
 
+  float currentTopleftX = this->rectangle[0][0],
+        currentTopleftY = this->rectangle[0][1],
+        currentBottomRightX = this->rectangle[1][0],
+        currentBottomRightY = this->rectangle[1][1];
+
   // X-Axis
-  this->rectangle[0][0] = this->rectangle[0][0] > x ? x : this->rectangle[0][0];
-  this->rectangle[1][0] = this->rectangle[1][0] < x ? x : this->rectangle[1][0];
+  this->rectangle[0][0] = currentTopleftX > x ? x : currentTopleftX;
+  this->rectangle[1][0] = currentBottomRightX < x ? x : currentBottomRightX;
 
   // Y-Axis
-  this->rectangle[0][1] = this->rectangle[0][1] < y ? y : this->rectangle[0][1];
-  this->rectangle[1][1] = this->rectangle[1][1] > y ? y : this->rectangle[1][1];
+  this->rectangle[0][1] = currentTopleftY > y ? y : currentTopleftY;
+  this->rectangle[1][1] = currentBottomRightY < y ? y : currentBottomRightY;
+
+  int change = NOTHING_CHANGED;
+  if (currentTopleftX > x || currentTopleftY > y)
+    change |= TOPLEFT_CHANGED;
+  if (currentBottomRightX < x || currentBottomRightY < y)
+    change |= BOTTOMRIGHT_CHANGED;
+
+  return change;
 }
 
 float *VertexGroup::getBoundary()

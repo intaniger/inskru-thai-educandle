@@ -1,7 +1,9 @@
 #include <vector>
 #include <stdlib.h>
 #include "instruction.h"
+#ifndef VERTEX_GROUP
 #include "vertex_group.cpp"
+#endif
 
 #ifndef DRAWER
 #define DRAWER

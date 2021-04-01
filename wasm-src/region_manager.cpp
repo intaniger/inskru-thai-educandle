@@ -34,10 +34,10 @@ public:
     float *objectBound = regionDrawer->getFrameBound();
 
     regionContainerUniform[0] = objectBound[2] - objectBound[0];
-    regionContainerUniform[1] = objectBound[1] - objectBound[3]; // TODO: convert to negatively;
+    regionContainerUniform[1] = objectBound[3] - objectBound[1]; // TODO: convert to negatively;
 
     regionContainerOffsetUniform[0] = objectBound[0];
-    regionContainerOffsetUniform[1] = objectBound[3];
+    regionContainerOffsetUniform[1] = objectBound[1];
 
     screenUniform[0] = screenWidth;
     screenUniform[1] = screenHeight;

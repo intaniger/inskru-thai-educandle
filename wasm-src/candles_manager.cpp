@@ -1,11 +1,12 @@
 #include <vector>
-#include "candle.cpp"
+// #include "candle.cpp"
+#include "render_group.cpp"
 
 class CandlesManager
 {
 private:
-  std::vector<Candle *> candles;
-  std::vector<Candle *> projected_candles;
+  std::vector<RenderGroup *> groups;
+  std::vector<RenderGroup *> merged_render_groups;
   size_t currentRenderingIndex;
   float inverseContainerRatio;
 
@@ -16,13 +17,15 @@ public:
   float *const centerUniform = constanlyUniforms + 2;
   float *const scaleUniform = constanlyUniforms + 4;
 
-  float individualUniforms[3];
-  float *const lightNumberUniform = individualUniforms;
-  float *const luminanceUniform = individualUniforms + 1;
-  float *const radiusUniform = individualUniforms + 2;
+  float *individualUniforms;
+  float *lightPositions;
+  float *renderRectangle;
+  int lightNumber;
 
-  float lightPositions[2];
-  float renderRectangle[8];
+  // float *const lightNumberUniform = individualUniforms;
+  // float *const luminanceUniform = individualUniforms + 1;
+  // float *const radiusUniform = individualUniforms + 2;
+
   // lightNumber [1]
   // luminance [1]
   // radius [1]
@@ -43,19 +46,17 @@ public:
                                     center[0], center[1],
                                     // scale[1]
                                     scale},
-                                individualUniforms{
-                                    // lightNumber [1]
-                                    1,
-                                    // luminance [1]
-                                    DEFAULT_LUMINANCE,
-                                    // radius [1]
-                                    DEFAULT_RADIUS,
-                                },
-                                lightPositions{-1.0, -1.0}, inverseContainerRatio{objectHeight / objectWidth} {};
+                                inverseContainerRatio{objectHeight / objectWidth}
+  {
+    // 0.5 + (center[1] - 0.5) * inverseContainerRatio
+    __refCandle = new Candle(0, 0.5 - 0.5 * inverseContainerRatio);
+  };
 
-  int getCandleCounts();
-  void registerCandle(Candle *cdl);
-  int renderNextCandle();
+  int getRenderGroupCounts();
+  void registerCandle(float X, float Y);
+  int mergeRenderGroup(RenderGroup *grp);
+  int mergeRenderGroup();
+  int renderNextGroup();
 
   int resetIndex();
   void setCenter(float center[2]);
@@ -63,41 +64,88 @@ public:
   ~CandlesManager();
 };
 
-int CandlesManager::getCandleCounts()
+int CandlesManager::getRenderGroupCounts()
 {
-  return this->projected_candles.size();
+  return this->merged_render_groups.size();
 }
 
-void CandlesManager::registerCandle(Candle *cdl)
+int CandlesManager::mergeRenderGroup()
 {
-  this->candles.push_back(cdl);
-  this->projected_candles.push_back(cdl);
-  this->renderNextCandle();
+  std::sort(
+      this->groups.begin(),
+      this->groups.end(),
+      render_group_distance_less_than());
+
+  this->merged_render_groups.clear();
+  for (auto &&grp : this->groups)
+  {
+    // printf("%f, %f\n", grp->topleftCandle->position[0], grp->topleftCandle->position[1]);
+    this->mergeRenderGroup(new RenderGroup(grp->topleftCandle));
+  }
+
+  return this->merged_render_groups.size();
+}
+void CandlesManager::registerCandle(float X, float Y)
+{
+  float projectedX = X,
+        projectedY = 0.5 + (Y - 0.5) * inverseContainerRatio;
+
+  // printf("%f, %f\n", projectedX, projectedY);
+  Candle *candle = new Candle(projectedX, projectedY);
+  RenderGroup *newGrp = new RenderGroup(candle);
+  this->groups.push_back(newGrp);
+  this->mergeRenderGroup();
+  // this->renderNextGroup();
 }
 
-int CandlesManager::renderNextCandle()
+int CandlesManager::mergeRenderGroup(RenderGroup *grp)
 {
-  auto cdl = this->projected_candles[this->currentRenderingIndex++];
-  float projectedX = cdl->position[0],
-        projectedY = 0.5 + (cdl->position[1] - 0.5) * inverseContainerRatio;
+  // Assumed that merged_render_groups is sorted by distance;
+  auto lower = std::lower_bound(
+           this->merged_render_groups.begin(),
+           this->merged_render_groups.end(),
+           grp->distanceFromOrigin - (2 * 1.414 * grp->topleftCandle->radius),
+           render_group_distance_less_than()),
+       upper = std::upper_bound(
+           this->merged_render_groups.begin(),
+           this->merged_render_groups.end(),
+           grp->distanceFromOrigin + (2 * 1.414 * grp->topleftCandle->radius),
+           render_group_distance_greater_than());
 
-  *this->lightNumberUniform = 1;
-  *this->luminanceUniform = cdl->luminance;
-  *this->radiusUniform = cdl->radius;
-  this->lightPositions[0] = projectedX;
-  this->lightPositions[1] = projectedY;
+  // printf("This is da grouppp \n");
+  // for (auto &&grp : this->merged_render_groups)
+  // {
+  //   printf("%.2f\n", grp->distanceFromOrigin);
+  // }
 
-  this->renderRectangle[0] = projectedX - cdl->radius;
-  this->renderRectangle[1] = projectedY - cdl->radius;
+  for (auto rgrp = lower; rgrp != upper && rgrp != this->merged_render_groups.end(); ++rgrp)
+  {
 
-  this->renderRectangle[2] = projectedX + cdl->radius;
-  this->renderRectangle[3] = projectedY - cdl->radius;
+    auto existingRenderGroup = *rgrp;
+    // printf("%.2f %.2f, %.2f\n", existingRenderGroup->topleftCandle->position[0], existingRenderGroup->topleftCandle->position[1], existingRenderGroup->distanceFromOrigin);
+    if (existingRenderGroup->shouldMerge(grp))
+    {
+      existingRenderGroup->merge(grp);
+      return this->merged_render_groups.size();
+    }
+  }
+  this->merged_render_groups.push_back(grp);
+  std::sort(
+      this->merged_render_groups.begin(),
+      this->merged_render_groups.end(),
+      render_group_distance_less_than());
 
-  this->renderRectangle[4] = projectedX - cdl->radius;
-  this->renderRectangle[5] = projectedY + cdl->radius;
+  return this->merged_render_groups.size();
+}
 
-  this->renderRectangle[6] = projectedX + cdl->radius;
-  this->renderRectangle[7] = projectedY + cdl->radius;
+int CandlesManager::renderNextGroup()
+{
+  RenderGroup *group = this->merged_render_groups[this->currentRenderingIndex++];
+
+  this->individualUniforms = group->individualUniforms;
+  this->lightPositions = group->lightPositions;
+  this->renderRectangle = group->renderRectangle;
+  this->lightNumber = *group->lightNumberUniform;
 
   return this->currentRenderingIndex;
 }
@@ -111,7 +159,6 @@ int CandlesManager::resetIndex()
 void CandlesManager::setCenter(float center[2])
 {
   this->centerUniform[0] = center[0];
-  // 0.5 + (cdl->position[1] - 0.5) * inverseContainerRatio
   this->centerUniform[1] = 0.5 + (center[1] - 0.5) * inverseContainerRatio;
 }
 
