@@ -16,10 +16,18 @@ private:
   {
     return sqrt(x * x + y * y);
   };
+  bool between(float x, float x1, float x2)
+  {
+    return (x1 <= x && x <= x2) || (x2 <= x && x <= x1);
+  }
+  bool isintersect(float *frame1, float *frame2)
+  {
+    return collapse(frame1, frame2) || collapse(frame2, frame1);
+  }
   bool collapse(float *frame1, float *frame2)
   {
-    bool didXbetween = (frame1[0] < frame2[0] && frame2[0] < frame1[2]) || (frame1[0] < frame2[2] && frame2[2] < frame1[2]),
-         didYbetween = (frame1[1] < frame2[1] && frame2[1] < frame1[3]) || (frame1[1] < frame2[3] && frame2[3] < frame1[3]);
+    bool didXbetween = between(frame2[0], frame1[0], frame1[2]) || between(frame2[2], frame1[0], frame1[2]),
+         didYbetween = between(frame2[1], frame1[1], frame1[3]) || between(frame2[3], frame1[1], frame1[3]);
 
     return didXbetween && didYbetween;
   }
@@ -37,7 +45,7 @@ private:
 
 public:
   float distanceFromOrigin;
-  bool isMerged;
+  RenderGroup *mergedWith;
 
   float individualUniforms[3];
   float *const lightNumberUniform = individualUniforms;
@@ -50,10 +58,17 @@ public:
 
   RenderGroup(Candle *firstCandle)
   {
-    this->isMerged = false;
+    float bound[2][2] = {
+        {firstCandle->position[0] - firstCandle->radius, firstCandle->position[1] - firstCandle->radius},
+        {firstCandle->position[0] + firstCandle->radius, firstCandle->position[1] + firstCandle->radius},
+    };
+    this->mergedWith = NULL;
     this->candles.push_back(firstCandle);
-    this->vg = new VertexGroup(firstCandle->position);
-    this->distanceFromOrigin = distance(firstCandle->position, __refCandle->position);
+
+    this->vg = new VertexGroup(firstCandle->position, bound[0]);
+    this->vg->AddVertex(bound[1][0], bound[1][1]);
+
+    this->distanceFromOrigin = distance(bound[1], __refCandle->position);
     // length(firstCandle->position[0] - __refCandle->position[0], firstCandle->position[1] - __refCandle->position[1]);
     this->topleftCandle = firstCandle;
     this->bottomRightCandle = firstCandle;
@@ -69,51 +84,59 @@ public:
 
 bool RenderGroup::shouldMerge(RenderGroup *rhs)
 {
-  float lightRadiusBottomRight = std::max(this->bottomRightCandle->radius, rhs->topleftCandle->radius),
-        lightRadiusTopLeft = std::max(this->topleftCandle->radius, rhs->bottomRightCandle->radius);
 
   float *bound = this->getBoundary();
-  float rect[4] = {
-      bound[0] - lightRadiusTopLeft,
-      bound[1] - lightRadiusTopLeft,
-      bound[2] + lightRadiusBottomRight,
-      bound[3] + lightRadiusBottomRight,
-  };
-  // float topleft[2] = {bound[0] - lightRadiusTopLeft, bound[1] - lightRadiusTopLeft};
-  // float bottomright[2] = {bound[2] + lightRadiusBottomRight, bound[3] + lightRadiusBottomRight};
-
   float *rhsBound = rhs->getBoundary();
-  float rhsRect[4] = {
-      rhsBound[0] - lightRadiusTopLeft,
-      rhsBound[1] - lightRadiusTopLeft,
-      rhsBound[2] + lightRadiusBottomRight,
-      rhsBound[3] + lightRadiusBottomRight,
-  };
-  // float rhsTopleft[2] = {rhsBound[0] - lightRadiusTopLeft, rhsBound[1] - lightRadiusTopLeft};
-  // float rhsBottomright[2] = {rhsBound[2] + lightRadiusBottomRight, rhsBound[3] + lightRadiusBottomRight};
 
-  return collapse(rect, rhsRect);
+  return isintersect(bound, rhsBound);
 }
 
 void RenderGroup::merge(RenderGroup *rhs)
 {
-  this->candles.insert(this->candles.end(), rhs->candles.begin(), rhs->candles.end());
-  float *rhsBound = rhs->vg->getBoundary();
+  RenderGroup *target = rhs;
+  size_t offset = 0;
+  while (target->mergedWith != NULL)
+  {
+    target = target->mergedWith;
+    offset += 1;
+  }
 
-  auto change = this->vg->AddVertex(rhsBound[0], rhsBound[1]);
+  if (target == this)
+    return;
+
+  printf("Src:\n");
+  for (auto &&c : this->candles)
+  {
+    printf("%f, %f\n", c->position[0], c->position[1]);
+  }
+
+  printf("With:\n");
+  for (auto &&c : target->candles)
+  {
+    printf("%f, %f\n", c->position[0], c->position[1]);
+  }
+
+  printf("Offset = %d\n", offset);
+
+  this->candles.insert(this->candles.end(), target->candles.begin(), target->candles.end());
+  float *targetBound = target->vg->getBoundary();
+
+  auto change = this->vg->AddVertex(targetBound[0], targetBound[1]);
   if (change & TOPLEFT_CHANGED)
-    this->topleftCandle = rhs->topleftCandle;
+    this->topleftCandle = target->topleftCandle;
   if (change & BOTTOMRIGHT_CHANGED)
-    this->bottomRightCandle = rhs->topleftCandle;
+    this->bottomRightCandle = target->topleftCandle;
 
-  change = this->vg->AddVertex(rhsBound[2], rhsBound[3]);
+  change = this->vg->AddVertex(targetBound[2], targetBound[3]);
   if (change & TOPLEFT_CHANGED)
-    this->topleftCandle = rhs->bottomRightCandle;
+    this->topleftCandle = target->bottomRightCandle;
   if (change & BOTTOMRIGHT_CHANGED)
-    this->bottomRightCandle = rhs->bottomRightCandle;
+    this->bottomRightCandle = target->bottomRightCandle;
 
-  this->distanceFromOrigin = distance(this->bottomRightCandle->position, __refCandle->position);
-  rhs->isMerged = true;
+  float *bound = this->getBoundary();
+  this->distanceFromOrigin = distance(&bound[2], __refCandle->position);
+  target->mergedWith = this;
+  this->mergedWith = NULL;
   this->updateUniform();
 }
 
@@ -139,10 +162,10 @@ void RenderGroup::updateUniform()
   }
 
   float *bound = this->getBoundary();
-  float leftX = bound[0] - this->topleftCandle->radius,
-        rightX = bound[2] + this->topleftCandle->radius,
-        topY = bound[1] - this->topleftCandle->radius,
-        bottomY = bound[3] + this->topleftCandle->radius;
+  float leftX = bound[0],
+        rightX = bound[2],
+        topY = bound[1],
+        bottomY = bound[3];
 
   this->renderRectangle[0] = leftX;
   this->renderRectangle[1] = topY;
@@ -177,6 +200,10 @@ struct render_group_distance_greater_than
   inline bool operator()(const float d, RenderGroup *gr1)
   {
     return (gr1->distanceFromOrigin > d);
+  }
+  inline bool operator()(RenderGroup *gr1, RenderGroup *gr2)
+  {
+    return (gr1->distanceFromOrigin > gr2->distanceFromOrigin);
   }
 };
 struct render_group_distance_equal

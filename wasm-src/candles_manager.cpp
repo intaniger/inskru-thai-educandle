@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <vector>
+#include <queue>
 // #include "candle.cpp"
 #include "render_group.cpp"
 
@@ -54,8 +56,7 @@ public:
 
   int getRenderGroupCounts();
   void registerCandle(float X, float Y);
-  int mergeRenderGroup(RenderGroup *grp);
-  int mergeRenderGroup();
+  int mergeRenderGroups();
   int renderNextGroup();
 
   int resetIndex();
@@ -69,19 +70,64 @@ int CandlesManager::getRenderGroupCounts()
   return this->merged_render_groups.size();
 }
 
-int CandlesManager::mergeRenderGroup()
+int CandlesManager::mergeRenderGroups()
 {
   std::sort(
       this->groups.begin(),
       this->groups.end(),
       render_group_distance_less_than());
 
+  for (auto mgrp : this->merged_render_groups)
+    delete mgrp;
+
   this->merged_render_groups.clear();
-  for (auto &&grp : this->groups)
+
+  std::priority_queue<RenderGroup *, std::vector<RenderGroup *>, render_group_distance_greater_than> waveFront;
+  std::vector<RenderGroup *> temp;
+  for (auto singleGroup : this->groups)
   {
-    // printf("%f, %f\n", grp->topleftCandle->position[0], grp->topleftCandle->position[1]);
-    this->mergeRenderGroup(new RenderGroup(grp->topleftCandle));
+    auto copiedGroup = new RenderGroup(singleGroup->topleftCandle);
+
+    // while (!waveFront.empty())
+    // {
+    //   auto existingGroup = waveFront.top();
+    //   temp.push_back(existingGroup);
+    //   waveFront.pop();
+    //   if (existingGroup->shouldMerge(copiedGroup))
+    //   {
+    //     existingGroup->merge(copiedGroup);
+    //     break;
+    //   }
+    // }
+
+    // for (auto poppedGroup : temp)
+    //   // if (grp->distanceFromOrigin - poppedGroup->distanceFromOrigin < 2 * sqrt(2) * poppedGroup->bottomRightCandle->radius)
+    //   waveFront.push(poppedGroup);
+
+    for (auto existingGroup : temp)
+    {
+      if (existingGroup->shouldMerge(copiedGroup))
+      {
+        existingGroup->merge(copiedGroup);
+        break;
+      }
+    }
+
+    if (!copiedGroup->mergedWith)
+    {
+      temp.push_back(copiedGroup);
+      waveFront.push(copiedGroup);
+    }
   }
+
+  for (auto i = temp.begin(); i != temp.end(); i++)
+    for (auto j = temp.begin(); j != temp.end(); j++)
+      if ((*j)->mergedWith == NULL && (*j)->shouldMerge(*i))
+        (*j)->merge(*i);
+
+  for (auto group : temp)
+    if ((group)->mergedWith == NULL)
+      this->merged_render_groups.push_back(group);
 
   return this->merged_render_groups.size();
 }
@@ -94,48 +140,8 @@ void CandlesManager::registerCandle(float X, float Y)
   Candle *candle = new Candle(projectedX, projectedY);
   RenderGroup *newGrp = new RenderGroup(candle);
   this->groups.push_back(newGrp);
-  this->mergeRenderGroup();
+  this->mergeRenderGroups();
   // this->renderNextGroup();
-}
-
-int CandlesManager::mergeRenderGroup(RenderGroup *grp)
-{
-  // Assumed that merged_render_groups is sorted by distance;
-  auto lower = std::lower_bound(
-           this->merged_render_groups.begin(),
-           this->merged_render_groups.end(),
-           grp->distanceFromOrigin - (2 * 1.414 * grp->topleftCandle->radius),
-           render_group_distance_less_than()),
-       upper = std::upper_bound(
-           this->merged_render_groups.begin(),
-           this->merged_render_groups.end(),
-           grp->distanceFromOrigin + (2 * 1.414 * grp->topleftCandle->radius),
-           render_group_distance_greater_than());
-
-  // printf("This is da grouppp \n");
-  // for (auto &&grp : this->merged_render_groups)
-  // {
-  //   printf("%.2f\n", grp->distanceFromOrigin);
-  // }
-
-  for (auto rgrp = lower; rgrp != upper && rgrp != this->merged_render_groups.end(); ++rgrp)
-  {
-
-    auto existingRenderGroup = *rgrp;
-    // printf("%.2f %.2f, %.2f\n", existingRenderGroup->topleftCandle->position[0], existingRenderGroup->topleftCandle->position[1], existingRenderGroup->distanceFromOrigin);
-    if (existingRenderGroup->shouldMerge(grp))
-    {
-      existingRenderGroup->merge(grp);
-      return this->merged_render_groups.size();
-    }
-  }
-  this->merged_render_groups.push_back(grp);
-  std::sort(
-      this->merged_render_groups.begin(),
-      this->merged_render_groups.end(),
-      render_group_distance_less_than());
-
-  return this->merged_render_groups.size();
 }
 
 int CandlesManager::renderNextGroup()
