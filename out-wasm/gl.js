@@ -168,6 +168,15 @@ const initializeRegionProgram = (uniforms, vertices) => {
       render(gl, window.region_prg, window.candle_prg)
     }
   })
+
+  // document.addEventListener('keypress', (e) => {
+  //   if ((e.code = 'Space')) {
+  //     ;[...Array(1000).keys()].forEach(() => {
+  //       Module.handleClickEvent(Math.random(), Math.random())
+  //       render(gl, window.region_prg, window.candle_prg)
+  //     })
+  //   }
+  // })
 }
 
 let candleVertices = new Float32Array()

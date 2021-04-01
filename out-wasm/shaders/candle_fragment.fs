@@ -1,4 +1,6 @@
-uniform highp vec2 lightPositions[16];
+const int MAX_SIZE = 32;
+
+uniform highp vec2 lightPositions[MAX_SIZE];
 uniform int lightNumbers;
 
 uniform lowp float lum;
@@ -42,9 +44,7 @@ void main(){
   lowp vec4 light = setLuminance(lightColor, lum);
   gl_FragColor = bgColor;
 
-  for(int i = 0; i < 16; i++) {
-    if(i == lightNumbers) return;
-    gl_FragColor += drawLight(frag_position, lightPositions[i], light, radius);
+  for(int i = 0; i < MAX_SIZE; i++) {
+    gl_FragColor += clamp(float(lightNumbers) - float(i), 0., 1.) * drawLight(frag_position, lightPositions[i], light, radius);
   }
-
 }

@@ -12,6 +12,9 @@ private:
   size_t currentRenderingIndex;
   float inverseContainerRatio;
 
+  std::vector<RenderGroup *> pre_merged;
+  std::vector<RenderGroup *> tmp;
+
 public:
   float constanlyUniforms[5];
   float *const screenRatioUniform = constanlyUniforms;
@@ -72,6 +75,7 @@ int CandlesManager::getRenderGroupCounts()
 
 int CandlesManager::mergeRenderGroups()
 {
+  std::priority_queue<RenderGroup *, std::vector<RenderGroup *>, render_group_distance_greater_than> waveFront;
   std::sort(
       this->groups.begin(),
       this->groups.end(),
@@ -82,30 +86,16 @@ int CandlesManager::mergeRenderGroups()
 
   this->merged_render_groups.clear();
 
-  std::priority_queue<RenderGroup *, std::vector<RenderGroup *>, render_group_distance_greater_than> waveFront;
-  std::vector<RenderGroup *> temp;
   for (auto singleGroup : this->groups)
   {
+
     auto copiedGroup = new RenderGroup(singleGroup->topleftCandle);
 
-    // while (!waveFront.empty())
-    // {
-    //   auto existingGroup = waveFront.top();
-    //   temp.push_back(existingGroup);
-    //   waveFront.pop();
-    //   if (existingGroup->shouldMerge(copiedGroup))
-    //   {
-    //     existingGroup->merge(copiedGroup);
-    //     break;
-    //   }
-    // }
-
-    // for (auto poppedGroup : temp)
-    //   // if (grp->distanceFromOrigin - poppedGroup->distanceFromOrigin < 2 * sqrt(2) * poppedGroup->bottomRightCandle->radius)
-    //   waveFront.push(poppedGroup);
-
-    for (auto existingGroup : temp)
+    while (!waveFront.empty())
     {
+      auto existingGroup = waveFront.top();
+      tmp.push_back(existingGroup);
+      waveFront.pop();
       if (existingGroup->shouldMerge(copiedGroup))
       {
         existingGroup->merge(copiedGroup);
@@ -113,22 +103,28 @@ int CandlesManager::mergeRenderGroups()
       }
     }
 
-    if (!copiedGroup->mergedWith)
+    for (auto poppedGroup : tmp)
+      if (copiedGroup->distanceFromOrigin - poppedGroup->distanceFromOrigin < 2 * sqrt(2) * poppedGroup->bottomRightCandle->radius)
+        waveFront.push(poppedGroup);
+
+    if (copiedGroup->mergedWith == NULL)
     {
-      temp.push_back(copiedGroup);
+      pre_merged.push_back(copiedGroup);
       waveFront.push(copiedGroup);
     }
+    tmp.clear();
   }
 
-  for (auto i = temp.begin(); i != temp.end(); i++)
-    for (auto j = temp.begin(); j != temp.end(); j++)
+  for (auto i = pre_merged.begin(); i != pre_merged.end(); i++)
+    for (auto j = pre_merged.begin(); j != pre_merged.end(); j++)
       if ((*j)->mergedWith == NULL && (*j)->shouldMerge(*i))
         (*j)->merge(*i);
 
-  for (auto group : temp)
+  for (auto group : pre_merged)
     if ((group)->mergedWith == NULL)
       this->merged_render_groups.push_back(group);
 
+  pre_merged.clear();
   return this->merged_render_groups.size();
 }
 void CandlesManager::registerCandle(float X, float Y)
@@ -141,7 +137,6 @@ void CandlesManager::registerCandle(float X, float Y)
   RenderGroup *newGrp = new RenderGroup(candle);
   this->groups.push_back(newGrp);
   this->mergeRenderGroups();
-  // this->renderNextGroup();
 }
 
 int CandlesManager::renderNextGroup()

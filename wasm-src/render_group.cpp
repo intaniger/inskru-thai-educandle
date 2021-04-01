@@ -52,7 +52,7 @@ public:
   float *const luminanceUniform = individualUniforms + 1;
   float *const radiusUniform = individualUniforms + 2;
 
-  float lightPositions[16];
+  float lightPositions[256];
   float renderRectangle[8];
   Candle *topleftCandle, *bottomRightCandle;
 
@@ -104,20 +104,6 @@ void RenderGroup::merge(RenderGroup *rhs)
   if (target == this)
     return;
 
-  printf("Src:\n");
-  for (auto &&c : this->candles)
-  {
-    printf("%f, %f\n", c->position[0], c->position[1]);
-  }
-
-  printf("With:\n");
-  for (auto &&c : target->candles)
-  {
-    printf("%f, %f\n", c->position[0], c->position[1]);
-  }
-
-  printf("Offset = %d\n", offset);
-
   this->candles.insert(this->candles.end(), target->candles.begin(), target->candles.end());
   float *targetBound = target->vg->getBoundary();
 
@@ -149,17 +135,16 @@ void RenderGroup::updateUniform()
 {
   size_t i = 0;
 
-  *this->lightNumberUniform = this->candles.size();
+  for (auto c = this->candles.begin(); c != this->candles.end() && i < 256; i += 2, ++c)
+  {
+
+    this->lightPositions[i] = (*c)->position[0];
+    this->lightPositions[i + 1] = (*c)->position[1];
+  }
+
+  *this->lightNumberUniform = i / 2;
   *this->luminanceUniform = this->topleftCandle->luminance;
   *this->radiusUniform = this->bottomRightCandle->radius;
-
-  for (auto &&c : this->candles)
-  {
-    this->lightPositions[i] = c->position[0];
-    this->lightPositions[i + 1] = c->position[1];
-
-    i += 2;
-  }
 
   float *bound = this->getBoundary();
   float leftX = bound[0],
