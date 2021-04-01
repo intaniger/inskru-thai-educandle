@@ -121,8 +121,10 @@ void RenderGroup::merge(RenderGroup *rhs)
 
   float *bound = this->getBoundary();
   this->distanceFromOrigin = distance(&bound[2], __refCandle->position);
+
   target->mergedWith = this;
   this->mergedWith = NULL;
+  target->candles.clear();
   this->updateUniform();
 }
 

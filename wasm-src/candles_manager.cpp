@@ -97,10 +97,7 @@ int CandlesManager::mergeRenderGroups()
       tmp.push_back(existingGroup);
       waveFront.pop();
       if (existingGroup->shouldMerge(copiedGroup))
-      {
         existingGroup->merge(copiedGroup);
-        break;
-      }
     }
 
     for (auto poppedGroup : tmp)
@@ -109,16 +106,16 @@ int CandlesManager::mergeRenderGroups()
 
     if (copiedGroup->mergedWith == NULL)
     {
-      pre_merged.push_back(copiedGroup);
+      this->pre_merged.push_back(copiedGroup);
       waveFront.push(copiedGroup);
     }
     tmp.clear();
   }
 
-  for (auto i = pre_merged.begin(); i != pre_merged.end(); i++)
-    for (auto j = pre_merged.begin(); j != pre_merged.end(); j++)
-      if ((*j)->mergedWith == NULL && (*j)->shouldMerge(*i))
-        (*j)->merge(*i);
+  // for (auto i = pre_merged.begin(); i != pre_merged.end(); i++)
+  //   for (auto j = pre_merged.begin(); j != pre_merged.end(); j++)
+  //     if ((*j)->mergedWith == NULL && (*j)->shouldMerge(*i))
+  //       (*j)->merge(*i);
 
   for (auto group : pre_merged)
     if ((group)->mergedWith == NULL)
