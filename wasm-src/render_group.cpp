@@ -4,6 +4,12 @@
 #ifndef VERTEX_GROUP
 #include "vertex_group.cpp"
 #endif
+#ifndef HELPER
+#include "helper.cpp"
+#endif
+
+#define SELF_MERGED 0
+#define OTHER_MERGED 1
 
 Candle *__refCandle;
 
@@ -12,36 +18,6 @@ class RenderGroup
 private:
   std::vector<Candle *> candles;
   VertexGroup *vg;
-  float length(float x, float y)
-  {
-    return sqrt(x * x + y * y);
-  };
-  bool between(float x, float x1, float x2)
-  {
-    return (x1 <= x && x <= x2) || (x2 <= x && x <= x1);
-  }
-  bool isintersect(float *frame1, float *frame2)
-  {
-    return collapse(frame1, frame2) || collapse(frame2, frame1);
-  }
-  bool collapse(float *frame1, float *frame2)
-  {
-    bool didXbetween = between(frame2[0], frame1[0], frame1[2]) || between(frame2[2], frame1[0], frame1[2]),
-         didYbetween = between(frame2[1], frame1[1], frame1[3]) || between(frame2[3], frame1[1], frame1[3]);
-
-    return didXbetween && didYbetween;
-  }
-  float distance(float *br, float *tl)
-  {
-    float vector[2] = {
-        br[0] - tl[0],
-        br[1] - tl[1],
-    };
-
-    // if (vector[0] < 0 && vector[1] < 0)
-    //   return 0;
-    return length(vector[0], vector[1]);
-  };
 
 public:
   float distanceFromOrigin;
@@ -77,7 +53,7 @@ public:
   };
   float *getBoundary();
   bool shouldMerge(RenderGroup *rhs);
-  void merge(RenderGroup *rhs);
+  int merge(RenderGroup *rhs);
   void updateUniform();
   ~RenderGroup();
 };
@@ -91,7 +67,7 @@ bool RenderGroup::shouldMerge(RenderGroup *rhs)
   return isintersect(bound, rhsBound);
 }
 
-void RenderGroup::merge(RenderGroup *rhs)
+int RenderGroup::merge(RenderGroup *rhs)
 {
   RenderGroup *target = rhs;
   size_t offset = 0;
@@ -102,7 +78,7 @@ void RenderGroup::merge(RenderGroup *rhs)
   }
 
   if (target == this)
-    return;
+    return SELF_MERGED;
 
   this->candles.insert(this->candles.end(), target->candles.begin(), target->candles.end());
   float *targetBound = target->vg->getBoundary();
@@ -126,6 +102,7 @@ void RenderGroup::merge(RenderGroup *rhs)
   this->mergedWith = NULL;
   target->candles.clear();
   this->updateUniform();
+  return OTHER_MERGED;
 }
 
 float *RenderGroup::getBoundary()
@@ -178,6 +155,10 @@ struct render_group_distance_less_than
     return (gr1->distanceFromOrigin < gr2->distanceFromOrigin);
   }
   inline bool operator()(RenderGroup *gr1, const float d)
+  {
+    return (gr1->distanceFromOrigin < d);
+  }
+  inline bool operator()(const float d, RenderGroup *gr1)
   {
     return (gr1->distanceFromOrigin < d);
   }
