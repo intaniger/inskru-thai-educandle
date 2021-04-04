@@ -70,7 +70,8 @@ public:
   int resetIndex();
   void setCenter(float center[2]);
   void setScale(float scale);
-  std::vector<RenderGroup *>::iterator merge(int direction, std::vector<RenderGroup *>::iterator start);
+  std::vector<RenderGroup *>::iterator merge(std::vector<RenderGroup *>::iterator start, int direction);
+  void merge(std::vector<RenderGroup *>::iterator start);
 
   ~CandlesManager();
 };
@@ -80,17 +81,22 @@ int CandlesManager::getRenderGroupCounts()
   return this->merged_render_groups.size();
 }
 
-std::vector<RenderGroup *>::iterator CandlesManager::merge(int direction, std::vector<RenderGroup *>::iterator start)
+void CandlesManager::merge(std::vector<RenderGroup *>::iterator start)
+{
+  this->merge(start, FORWARD_MERGE);
+}
+
+std::vector<RenderGroup *>::iterator CandlesManager::merge(std::vector<RenderGroup *>::iterator start, int direction)
 {
   // assumed that pre_merged is sorted asc-ly before.
   bool shouldReconcile = false;
-  auto it = start, dit = it, tainted = this->pre_merged.end();
-  auto term = direction == FORWARD_MERGE ? this->pre_merged.end() : this->pre_merged.begin() - 1;
+  auto tainted = this->pre_merged.end(),
+       term = direction == FORWARD_MERGE ? this->pre_merged.end() : this->pre_merged.begin() - 1;
 
   do
   {
     shouldReconcile = false;
-    for (; it != term; it += direction)
+    for (auto it = start; it != term; it += direction)
     {
       RenderGroup *otherGroup, *consideringGroup;
       float *consideringBound, *othersBound;
@@ -128,7 +134,7 @@ std::vector<RenderGroup *>::iterator CandlesManager::merge(int direction, std::v
       }
     }
   } while (shouldReconcile);
-  return tainted;
+  return tainted == this->pre_merged.end() ? tainted : this->merge(tainted, direction * -1);
 }
 
 int CandlesManager::mergeRenderGroups()
@@ -151,13 +157,8 @@ int CandlesManager::mergeRenderGroups()
       render_group_distance_less_than());
 
   int direction = FORWARD_MERGE;
-  std::vector<RenderGroup *>::iterator tainted = this->pre_merged.begin();
 
-  while (tainted != this->pre_merged.end())
-  {
-    tainted = this->merge(direction, tainted);
-    direction *= -1;
-  }
+  this->merge(this->pre_merged.begin());
 
   for (auto group : pre_merged)
     if ((group)->mergedWith == NULL)
