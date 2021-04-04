@@ -171,7 +171,7 @@ const initializeRegionProgram = (uniforms, vertices) => {
 
   // document.addEventListener('keypress', (e) => {
   //   if ((e.code = 'Space')) {
-  //     ;[...Array(1000).keys()].forEach(() => {
+  //     RANDOMIZED_TESTCASE.forEach(([a, b], i) => {
   //       Module.handleClickEvent(Math.random(), Math.random())
   //       render(gl, window.region_prg, window.candle_prg)
   //     })

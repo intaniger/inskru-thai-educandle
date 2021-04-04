@@ -3,6 +3,12 @@
 #include <queue>
 // #include "candle.cpp"
 #include "render_group.cpp"
+#ifndef HELPER
+#include "helper.cpp"
+#endif
+
+#define FORWARD_MERGE 1
+#define BACKWARD_MERGE -1
 
 class CandlesManager
 {
@@ -13,7 +19,6 @@ private:
   float inverseContainerRatio;
 
   std::vector<RenderGroup *> pre_merged;
-  std::vector<RenderGroup *> tmp;
 
 public:
   float constanlyUniforms[5];
@@ -65,6 +70,8 @@ public:
   int resetIndex();
   void setCenter(float center[2]);
   void setScale(float scale);
+  std::vector<RenderGroup *>::iterator merge(int direction, std::vector<RenderGroup *>::iterator start);
+
   ~CandlesManager();
 };
 
@@ -73,55 +80,89 @@ int CandlesManager::getRenderGroupCounts()
   return this->merged_render_groups.size();
 }
 
+std::vector<RenderGroup *>::iterator CandlesManager::merge(int direction, std::vector<RenderGroup *>::iterator start)
+{
+  // assumed that pre_merged is sorted asc-ly before.
+  bool shouldReconcile = false;
+  auto it = start, dit = it, tainted = this->pre_merged.end();
+  auto term = direction == FORWARD_MERGE ? this->pre_merged.end() : this->pre_merged.begin() - 1;
+
+  do
+  {
+    shouldReconcile = false;
+    for (; it != term; it += direction)
+    {
+      RenderGroup *otherGroup, *consideringGroup;
+      float *consideringBound, *othersBound;
+      float consideringBoundDistance;
+
+      consideringGroup = (*it);
+      consideringBound = consideringGroup->getBoundary();
+      consideringBoundDistance = distance(&consideringBound[0], &consideringBound[2]);
+
+      if (consideringGroup->mergedWith != NULL)
+        continue;
+
+      otherGroup = consideringGroup;
+      othersBound = otherGroup->getBoundary();
+
+      for (
+          auto dit = it;
+          !(dit == term ||
+            abs(otherGroup->distanceFromOrigin - consideringGroup->distanceFromOrigin) >
+                std::max<float>(consideringBoundDistance, distance(&othersBound[0], &othersBound[2])));
+          dit += direction)
+      {
+        otherGroup = (*dit);
+        othersBound = otherGroup->getBoundary();
+
+        if (otherGroup->mergedWith != NULL)
+          continue;
+
+        if (otherGroup->shouldMerge(consideringGroup))
+        {
+          shouldReconcile = otherGroup->merge(consideringGroup) == OTHER_MERGED;
+          if (shouldReconcile)
+            tainted = dit;
+        }
+      }
+    }
+  } while (shouldReconcile);
+  return tainted;
+}
+
 int CandlesManager::mergeRenderGroups()
 {
-  std::priority_queue<RenderGroup *, std::vector<RenderGroup *>, render_group_distance_greater_than> waveFront;
-  std::sort(
-      this->groups.begin(),
-      this->groups.end(),
-      render_group_distance_less_than());
-
-  for (auto mgrp : this->merged_render_groups)
+  for (auto mgrp : this->pre_merged)
     delete mgrp;
 
   this->merged_render_groups.clear();
+  this->pre_merged.clear();
 
   for (auto singleGroup : this->groups)
   {
-
-    auto copiedGroup = new RenderGroup(singleGroup->topleftCandle);
-
-    while (!waveFront.empty())
-    {
-      auto existingGroup = waveFront.top();
-      tmp.push_back(existingGroup);
-      waveFront.pop();
-      if (existingGroup->shouldMerge(copiedGroup))
-        existingGroup->merge(copiedGroup);
-    }
-
-    for (auto poppedGroup : tmp)
-      if (copiedGroup->distanceFromOrigin - poppedGroup->distanceFromOrigin < 2 * sqrt(2) * poppedGroup->bottomRightCandle->radius)
-        waveFront.push(poppedGroup);
-
-    if (copiedGroup->mergedWith == NULL)
-    {
-      this->pre_merged.push_back(copiedGroup);
-      waveFront.push(copiedGroup);
-    }
-    tmp.clear();
+    auto g = new RenderGroup(singleGroup->topleftCandle);
+    this->pre_merged.push_back(g);
   }
 
-  // for (auto i = pre_merged.begin(); i != pre_merged.end(); i++)
-  //   for (auto j = pre_merged.begin(); j != pre_merged.end(); j++)
-  //     if ((*j)->mergedWith == NULL && (*j)->shouldMerge(*i))
-  //       (*j)->merge(*i);
+  std::sort(
+      this->pre_merged.begin(),
+      this->pre_merged.end(),
+      render_group_distance_less_than());
+
+  int direction = FORWARD_MERGE;
+  std::vector<RenderGroup *>::iterator tainted = this->pre_merged.begin();
+
+  while (tainted != this->pre_merged.end())
+  {
+    tainted = this->merge(direction, tainted);
+    direction *= -1;
+  }
 
   for (auto group : pre_merged)
     if ((group)->mergedWith == NULL)
       this->merged_render_groups.push_back(group);
 
-  pre_merged.clear();
   return this->merged_render_groups.size();
 }
 void CandlesManager::registerCandle(float X, float Y)
