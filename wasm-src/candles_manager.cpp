@@ -156,8 +156,6 @@ int CandlesManager::mergeRenderGroups()
       this->pre_merged.end(),
       render_group_distance_less_than());
 
-  int direction = FORWARD_MERGE;
-
   this->merge(this->pre_merged.begin());
 
   for (auto group : pre_merged)
