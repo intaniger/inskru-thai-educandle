@@ -89,51 +89,43 @@ void CandlesManager::merge(std::vector<RenderGroup *>::iterator start)
 std::vector<RenderGroup *>::iterator CandlesManager::merge(std::vector<RenderGroup *>::iterator start, int direction)
 {
   // assumed that pre_merged is sorted asc-ly before.
-  bool shouldReconcile = false;
   auto tainted = this->pre_merged.end(),
        term = direction == FORWARD_MERGE ? this->pre_merged.end() : this->pre_merged.begin() - 1;
 
-  do
+  for (auto it = start; it != term; it += direction)
   {
-    shouldReconcile = false;
-    for (auto it = start; it != term; it += direction)
+    RenderGroup *otherGroup, *consideringGroup;
+    float *consideringBound, *othersBound;
+    float consideringBoundDistance;
+
+    consideringGroup = (*it);
+    consideringBound = consideringGroup->getBoundary();
+    consideringBoundDistance = distance(&consideringBound[0], &consideringBound[2]);
+
+    if (consideringGroup->mergedWith != NULL)
+      continue;
+
+    otherGroup = consideringGroup;
+    othersBound = otherGroup->getBoundary();
+
+    for (
+        auto dit = it;
+        !(dit == term ||
+          abs(otherGroup->distanceFromOrigin - consideringGroup->distanceFromOrigin) >
+              std::max<float>(consideringBoundDistance, distance(&othersBound[0], &othersBound[2])));
+        dit += direction)
     {
-      RenderGroup *otherGroup, *consideringGroup;
-      float *consideringBound, *othersBound;
-      float consideringBoundDistance;
-
-      consideringGroup = (*it);
-      consideringBound = consideringGroup->getBoundary();
-      consideringBoundDistance = distance(&consideringBound[0], &consideringBound[2]);
-
-      if (consideringGroup->mergedWith != NULL)
-        continue;
-
-      otherGroup = consideringGroup;
+      otherGroup = (*dit);
       othersBound = otherGroup->getBoundary();
 
-      for (
-          auto dit = it;
-          !(dit == term ||
-            abs(otherGroup->distanceFromOrigin - consideringGroup->distanceFromOrigin) >
-                std::max<float>(consideringBoundDistance, distance(&othersBound[0], &othersBound[2])));
-          dit += direction)
-      {
-        otherGroup = (*dit);
-        othersBound = otherGroup->getBoundary();
+      if (otherGroup->mergedWith != NULL)
+        continue;
 
-        if (otherGroup->mergedWith != NULL)
-          continue;
-
-        if (otherGroup->shouldMerge(consideringGroup))
-        {
-          shouldReconcile = otherGroup->merge(consideringGroup) == OTHER_MERGED;
-          if (shouldReconcile)
-            tainted = dit;
-        }
-      }
+      if (otherGroup->shouldMerge(consideringGroup))
+        if (otherGroup->merge(consideringGroup) == OTHER_MERGED)
+          tainted = dit;
     }
-  } while (shouldReconcile);
+  }
   return tainted == this->pre_merged.end() ? tainted : this->merge(tainted, direction * -1);
 }
 
