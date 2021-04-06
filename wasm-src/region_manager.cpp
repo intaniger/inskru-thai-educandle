@@ -1,6 +1,6 @@
 #include "drawer.h"
 
-class RegionManager
+class RegionRenderer
 {
 private:
   StaticShapeDrawer *drawer;
@@ -13,7 +13,7 @@ public:
   float *const screenUniform = uniforms + 6;
   float *const scaleUniform = uniforms + 8;
 
-  RegionManager(
+  RegionRenderer(
       StaticShapeDrawer *regionDrawer,
       float screenWidth,
       float screenHeight,
@@ -73,9 +73,9 @@ public:
   {
     return this->regionContainerUniform[1];
   }
-  ~RegionManager();
+  ~RegionRenderer();
 };
 
-RegionManager::~RegionManager()
+RegionRenderer::~RegionRenderer()
 {
 }

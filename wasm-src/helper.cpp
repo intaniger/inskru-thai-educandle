@@ -31,7 +31,7 @@ bool collapse(float *frame1, float *frame2)
 
   return didXbetween && didYbetween;
 }
-bool isintersect(float *frame1, float *frame2)
+bool isFrameCollapse(float *frame1, float *frame2)
 {
   return collapse(frame1, frame2) || collapse(frame2, frame1);
 }

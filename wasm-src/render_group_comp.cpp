@@ -1,0 +1,53 @@
+#ifndef RENDER_GROUP_COMP
+#define RENDER_GROUP_COMP
+#endif
+#ifndef RENDER_GROUP
+#include "render_group.cpp"
+#endif
+
+struct render_group_distance_less_than
+{
+  inline bool operator()(RenderGroup *gr1, RenderGroup *gr2)
+  {
+    return (gr1->distanceFromOrigin < gr2->distanceFromOrigin);
+  }
+  inline bool operator()(RenderGroup *gr1, const float d)
+  {
+    return (gr1->distanceFromOrigin < d);
+  }
+  inline bool operator()(const float d, RenderGroup *gr1)
+  {
+    return (gr1->distanceFromOrigin < d);
+  }
+};
+struct render_group_distance_greater_than
+{
+  inline bool operator()(const float d, RenderGroup *gr1)
+  {
+    return (gr1->distanceFromOrigin > d);
+  }
+  inline bool operator()(RenderGroup *gr1, RenderGroup *gr2)
+  {
+    return (gr1->distanceFromOrigin > gr2->distanceFromOrigin);
+  }
+};
+
+struct render_group_zIndex_less_than
+{
+  inline bool operator()(const unsigned int d, RenderGroup *gr1)
+  {
+    return (gr1->zIndex < d);
+  }
+  inline bool operator()(RenderGroup *gr1, RenderGroup *gr2)
+  {
+    return (gr1->zIndex < gr2->zIndex);
+  }
+};
+
+struct render_group_distance_equal
+{
+  inline bool operator()(RenderGroup *gr1, RenderGroup *gr2)
+  {
+    return (gr1->distanceFromOrigin == gr2->distanceFromOrigin);
+  }
+};

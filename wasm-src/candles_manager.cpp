@@ -10,7 +10,7 @@
 #define FORWARD_MERGE 1
 #define BACKWARD_MERGE -1
 
-class CandlesManager
+class CandlesRenderer
 {
 private:
   std::vector<RenderGroup *> groups;
@@ -42,21 +42,21 @@ public:
 
   // float const *lightNumberRatioUniform = uniforms + 5;
 
-  CandlesManager(float screenWidth,
-                 float screenHeight,
-                 float objectWidth,
-                 float objectHeight,
-                 float center[2],
-                 float scale) : constanlyUniforms{
-                                    // screen[1]
-                                    screenWidth / screenHeight,
-                                    // container[1]
-                                    objectWidth / objectHeight,
-                                    // center[2]
-                                    center[0], center[1],
-                                    // scale[1]
-                                    scale},
-                                inverseContainerRatio{objectHeight / objectWidth}
+  CandlesRenderer(float screenWidth,
+                  float screenHeight,
+                  float objectWidth,
+                  float objectHeight,
+                  float center[2],
+                  float scale) : constanlyUniforms{
+                                     // screen[1]
+                                     screenWidth / screenHeight,
+                                     // container[1]
+                                     objectWidth / objectHeight,
+                                     // center[2]
+                                     center[0], center[1],
+                                     // scale[1]
+                                     scale},
+                                 inverseContainerRatio{objectHeight / objectWidth}
   {
     // 0.5 + (center[1] - 0.5) * inverseContainerRatio
     __refCandle = new Candle(0, 0.5 - 0.5 * inverseContainerRatio);
@@ -73,20 +73,20 @@ public:
   std::vector<RenderGroup *>::iterator merge(std::vector<RenderGroup *>::iterator start, int direction);
   void merge(std::vector<RenderGroup *>::iterator start);
 
-  ~CandlesManager();
+  ~CandlesRenderer();
 };
 
-int CandlesManager::getRenderGroupCounts()
+int CandlesRenderer::getRenderGroupCounts()
 {
   return this->merged_render_groups.size();
 }
 
-void CandlesManager::merge(std::vector<RenderGroup *>::iterator start)
+void CandlesRenderer::merge(std::vector<RenderGroup *>::iterator start)
 {
   this->merge(start, FORWARD_MERGE);
 }
 
-std::vector<RenderGroup *>::iterator CandlesManager::merge(std::vector<RenderGroup *>::iterator start, int direction)
+std::vector<RenderGroup *>::iterator CandlesRenderer::merge(std::vector<RenderGroup *>::iterator start, int direction)
 {
   // assumed that pre_merged is sorted asc-ly before.
   auto tainted = this->pre_merged.end(),
@@ -121,15 +121,27 @@ std::vector<RenderGroup *>::iterator CandlesManager::merge(std::vector<RenderGro
       if (otherGroup->mergedWith != NULL)
         continue;
 
-      if (otherGroup->shouldMerge(consideringGroup))
+      switch (otherGroup->shouldMerge(consideringGroup))
+      {
+      case SHOULD_MERGE:
         if (otherGroup->merge(consideringGroup) == OTHER_MERGED)
           tainted = dit;
+        break;
+
+      case COLLAPSE_ONLY:
+        if (otherGroup->updateZIndex(consideringGroup) == Z_INDEX_UNCHANGED)
+          consideringGroup->updateZIndex(otherGroup);
+        break;
+
+      default:
+        break;
+      }
     }
   }
   return tainted == this->pre_merged.end() ? tainted : this->merge(tainted, direction * -1);
 }
 
-int CandlesManager::mergeRenderGroups()
+int CandlesRenderer::mergeRenderGroups()
 {
   for (auto mgrp : this->pre_merged)
     delete mgrp;
@@ -154,9 +166,14 @@ int CandlesManager::mergeRenderGroups()
     if ((group)->mergedWith == NULL)
       this->merged_render_groups.push_back(group);
 
+  std::sort(
+      this->merged_render_groups.begin(),
+      this->merged_render_groups.end(),
+      render_group_zIndex_less_than());
+
   return this->merged_render_groups.size();
 }
-void CandlesManager::registerCandle(float X, float Y)
+void CandlesRenderer::registerCandle(float X, float Y)
 {
   float projectedX = X,
         projectedY = 0.5 + (Y - 0.5) * inverseContainerRatio;
@@ -168,7 +185,7 @@ void CandlesManager::registerCandle(float X, float Y)
   this->mergeRenderGroups();
 }
 
-int CandlesManager::renderNextGroup()
+int CandlesRenderer::renderNextGroup()
 {
   RenderGroup *group = this->merged_render_groups[this->currentRenderingIndex++];
 
@@ -180,23 +197,23 @@ int CandlesManager::renderNextGroup()
   return this->currentRenderingIndex;
 }
 
-int CandlesManager::resetIndex()
+int CandlesRenderer::resetIndex()
 {
   this->currentRenderingIndex = 0;
   return this->currentRenderingIndex;
 }
 
-void CandlesManager::setCenter(float center[2])
+void CandlesRenderer::setCenter(float center[2])
 {
   this->centerUniform[0] = center[0];
   this->centerUniform[1] = 0.5 + (center[1] - 0.5) * inverseContainerRatio;
 }
 
-void CandlesManager::setScale(float scale)
+void CandlesRenderer::setScale(float scale)
 {
   *this->scaleUniform = scale;
 }
 
-CandlesManager::~CandlesManager()
+CandlesRenderer::~CandlesRenderer()
 {
 }

@@ -41,8 +41,8 @@ char thHuffmanDefinition[] = {
 
 InstructionsDecoder regionIDecoder(thHuffmanDefinition, 8);
 ScreenViewState *view;
-RegionManager *regionMgr;
-CandlesManager *candlesMgr;
+RegionRenderer *regionRndr;
+CandlesRenderer *candlesRndr;
 
 using namespace emscripten;
 
@@ -57,19 +57,19 @@ val initialize(uintptr_t shapes_data_addr, float screenWidth, float screenHeight
 
   char *shapes_data = reinterpret_cast<char *>(shapes_data_addr);
   auto instructions = regionIDecoder.Decode(shapes_data);
-  regionMgr = new RegionManager(
+  regionRndr = new RegionRenderer(
       new StaticShapeDrawer(instructions, reinterpret_cast<float *>(shapes_data)),
       screenWidth, screenHeight,
       initCenter, initScale);
 
-  candlesMgr = new CandlesManager(
+  candlesRndr = new CandlesRenderer(
       screenWidth, screenHeight,
-      regionMgr->getWidth(), regionMgr->getHeight(),
+      regionRndr->getWidth(), regionRndr->getHeight(),
       initCenter, initScale);
 
   view = new ScreenViewState(
       initCenter, initScale,
-      regionMgr->getWidth() / regionMgr->getHeight(),
+      regionRndr->getWidth() / regionRndr->getHeight(),
       screenWidth / screenHeight);
 
   return getRegionUniformPtr();
@@ -83,11 +83,11 @@ void handleZoomEvent(float deltaY, float mouseX, float mouseY)
 
   auto ctr = view->getCenter();
   auto scle = view->getScale();
-  regionMgr->setCenter(ctr);
-  regionMgr->setScale(scle);
+  regionRndr->setCenter(ctr);
+  regionRndr->setScale(scle);
 
-  candlesMgr->setCenter(ctr);
-  candlesMgr->setScale(scle);
+  candlesRndr->setCenter(ctr);
+  candlesRndr->setScale(scle);
 }
 
 void handleMoveEvent(float deltaX, float deltaY)
@@ -96,14 +96,14 @@ void handleMoveEvent(float deltaX, float deltaY)
   view->RelMoveTo(deltaX, deltaY);
 
   auto ctr = view->getCenter();
-  regionMgr->setCenter(ctr);
-  candlesMgr->setCenter(ctr);
+  regionRndr->setCenter(ctr);
+  candlesRndr->setCenter(ctr);
 }
 
 void handleClickEvent(float mouseX, float mouseY)
 {
   float *ctxPos = view->getContextPosition(mouseX, mouseY);
-  candlesMgr->registerCandle(ctxPos[0], ctxPos[1]);
+  candlesRndr->registerCandle(ctxPos[0], ctxPos[1]);
 }
 
 EMSCRIPTEN_BINDINGS(MAIN)

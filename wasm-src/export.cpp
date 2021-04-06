@@ -7,50 +7,50 @@
 
 val getRegionVertexBufferPtr()
 {
-  return val(typed_memory_view(regionMgr->getVerticesSize(), regionMgr->getVerticesPtr()));
+  return val(typed_memory_view(regionRndr->getVerticesSize(), regionRndr->getVerticesPtr()));
 }
 
 val getRegionUniformPtr()
 {
-  return val(typed_memory_view(9, regionMgr->uniforms));
+  return val(typed_memory_view(9, regionRndr->uniforms));
 }
 
 val getCandlesConstantlyUniformPtr()
 {
-  return val(typed_memory_view(5, candlesMgr->constanlyUniforms));
+  return val(typed_memory_view(5, candlesRndr->constanlyUniforms));
 }
 
 val getCandlesIndividuallyUniformPtr()
 {
-  return val(typed_memory_view(3, candlesMgr->individualUniforms));
+  return val(typed_memory_view(3, candlesRndr->individualUniforms));
 }
 
 val getCandlesIndividuallyLightPosition()
 {
-  return val(typed_memory_view(candlesMgr->lightNumber * 2, candlesMgr->lightPositions));
+  return val(typed_memory_view(candlesRndr->lightNumber * 2, candlesRndr->lightPositions));
 }
 
 val getCandlesIndividuallyRenderRectangle()
 {
-  return val(typed_memory_view(8, candlesMgr->renderRectangle));
+  return val(typed_memory_view(8, candlesRndr->renderRectangle));
 }
 
 int candleResetIndex()
 {
-  return candlesMgr->resetIndex();
+  return candlesRndr->resetIndex();
 }
 
 int candleGetCount()
 {
-  return candlesMgr->getRenderGroupCounts();
+  return candlesRndr->getRenderGroupCounts();
 }
 
 int candleRenderNext()
 {
-  return candlesMgr->renderNextGroup();
+  return candlesRndr->renderNextGroup();
 }
 
 int renderRegionVertices()
 {
-  return regionMgr->getVerticesSize();
+  return regionRndr->getVerticesSize();
 }

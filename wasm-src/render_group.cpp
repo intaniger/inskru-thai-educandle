@@ -1,3 +1,7 @@
+#ifndef RENDER_GROUP
+#define RENDER_GROUP
+#endif
+
 #include <vector>
 #include <math.h>
 #include "candle.cpp"
@@ -11,6 +15,13 @@
 #define SELF_MERGED 0
 #define OTHER_MERGED 1
 
+#define NO_MERGE 0
+#define COLLAPSE_ONLY 1
+#define SHOULD_MERGE 3
+
+#define Z_INDEX_UNCHANGED 0
+#define Z_INDEX_UPDATED 1
+
 Candle *__refCandle;
 
 class RenderGroup
@@ -18,9 +29,11 @@ class RenderGroup
 private:
   std::vector<Candle *> candles;
   VertexGroup *vg;
+  bool isCornerCollapseWithAnyCandleRay(RenderGroup *rhs);
 
 public:
   float distanceFromOrigin;
+  unsigned int zIndex;
   RenderGroup *mergedWith;
 
   float individualUniforms[3];
@@ -48,23 +61,71 @@ public:
     // length(firstCandle->position[0] - __refCandle->position[0], firstCandle->position[1] - __refCandle->position[1]);
     this->topleftCandle = firstCandle;
     this->bottomRightCandle = firstCandle;
+    this->zIndex = 1;
 
     this->updateUniform();
   };
   float *getBoundary();
-  bool shouldMerge(RenderGroup *rhs);
+  char shouldMerge(RenderGroup *rhs);
   int merge(RenderGroup *rhs);
+
+  char updateZIndex(RenderGroup *rhs);
   void updateUniform();
   ~RenderGroup();
 };
 
-bool RenderGroup::shouldMerge(RenderGroup *rhs)
+bool RenderGroup::isCornerCollapseWithAnyCandleRay(RenderGroup *rhs)
+{
+  float *rhsBound = rhs->getBoundary();
+
+  float corners[4][2] = {
+      {rhsBound[0], rhsBound[1]},
+      {rhsBound[0], rhsBound[3]},
+      {rhsBound[2], rhsBound[1]},
+      {rhsBound[2], rhsBound[3]},
+  };
+  for (auto &&c : this->candles)
+    for (auto corner : corners)
+      if (
+          distance(c->position, corner) <= c->radius ||
+          distance(c->position, rhs->topleftCandle->position) <= 2 * c->radius ||
+          distance(c->position, rhs->bottomRightCandle->position) <= 2 * c->radius)
+        return true;
+  return false;
+}
+
+char RenderGroup::updateZIndex(RenderGroup *rhs)
+{
+
+  float *rhsBound = rhs->getBoundary();
+
+  for (auto &&candle : this->candles)
+  {
+    float bound[4] = {
+        candle->position[0] - candle->radius,
+        candle->position[1] - candle->radius,
+        candle->position[0] + candle->radius,
+        candle->position[1] + candle->radius,
+    };
+    if (isFrameCollapse(bound, rhsBound))
+    {
+      // this->zIndex = rhs->zIndex + 1;
+      // rhs->zIndex = this->zIndex + 1;
+      this->zIndex += rhs->zIndex;
+      return Z_INDEX_UPDATED;
+    }
+  }
+
+  return Z_INDEX_UNCHANGED;
+}
+
+char RenderGroup::shouldMerge(RenderGroup *rhs)
 {
 
   float *bound = this->getBoundary();
   float *rhsBound = rhs->getBoundary();
 
-  return isintersect(bound, rhsBound);
+  return isFrameCollapse(bound, rhsBound) ? isCornerCollapseWithAnyCandleRay(rhs) ? SHOULD_MERGE : COLLAPSE_ONLY : NO_MERGE;
 }
 
 int RenderGroup::merge(RenderGroup *rhs)
@@ -101,6 +162,8 @@ int RenderGroup::merge(RenderGroup *rhs)
   target->mergedWith = this;
   this->mergedWith = NULL;
   target->candles.clear();
+
+  this->zIndex = std::min<unsigned int>(this->zIndex, rhs->zIndex);
   this->updateUniform();
   return OTHER_MERGED;
 }
@@ -148,36 +211,6 @@ RenderGroup::~RenderGroup()
 {
 }
 
-struct render_group_distance_less_than
-{
-  inline bool operator()(RenderGroup *gr1, RenderGroup *gr2)
-  {
-    return (gr1->distanceFromOrigin < gr2->distanceFromOrigin);
-  }
-  inline bool operator()(RenderGroup *gr1, const float d)
-  {
-    return (gr1->distanceFromOrigin < d);
-  }
-  inline bool operator()(const float d, RenderGroup *gr1)
-  {
-    return (gr1->distanceFromOrigin < d);
-  }
-};
-struct render_group_distance_greater_than
-{
-  inline bool operator()(const float d, RenderGroup *gr1)
-  {
-    return (gr1->distanceFromOrigin > d);
-  }
-  inline bool operator()(RenderGroup *gr1, RenderGroup *gr2)
-  {
-    return (gr1->distanceFromOrigin > gr2->distanceFromOrigin);
-  }
-};
-struct render_group_distance_equal
-{
-  inline bool operator()(RenderGroup *gr1, RenderGroup *gr2)
-  {
-    return (gr1->distanceFromOrigin == gr2->distanceFromOrigin);
-  }
-};
+#ifndef RENDER_GROUP_COMP
+#include "render_group_comp.cpp"
+#endif
