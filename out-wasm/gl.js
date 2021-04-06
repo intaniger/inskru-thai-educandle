@@ -261,7 +261,7 @@ async function render(
     gl.clear(gl.COLOR_BUFFER_BIT)
 
     gl.useProgram(candle_program)
-    Module.candleResetIndex()
+    Module.candlePrepare()
     const candleCount = Module.candleGetCount()
 
     const centerLoc = gl.getUniformLocation(candle_program, 'center')

@@ -1,8 +1,10 @@
 #include <algorithm>
 #include <vector>
 #include <queue>
-// #include "candle.cpp"
+#include "candles_repository.cpp"
+#ifndef RENDER_GROUP
 #include "render_group.cpp"
+#endif
 #ifndef HELPER
 #include "helper.cpp"
 #endif
@@ -13,14 +15,17 @@
 class CandlesRenderer
 {
 private:
-  std::vector<RenderGroup *> groups;
   std::vector<RenderGroup *> merged_render_groups;
   size_t currentRenderingIndex;
   float inverseContainerRatio;
 
   std::vector<RenderGroup *> pre_merged;
+  ScreenViewState *viewState;
+  CandlesRange range;
 
 public:
+  CandlesRepository *const cRepo;
+  SterotypedLightInfo sLightInfo;
   float constanlyUniforms[5];
   float *const screenRatioUniform = constanlyUniforms;
   float *const containerRatioUniform = constanlyUniforms + 1;
@@ -42,34 +47,35 @@ public:
 
   // float const *lightNumberRatioUniform = uniforms + 5;
 
-  CandlesRenderer(float screenWidth,
-                  float screenHeight,
-                  float objectWidth,
-                  float objectHeight,
-                  float center[2],
-                  float scale) : constanlyUniforms{
-                                     // screen[1]
-                                     screenWidth / screenHeight,
-                                     // container[1]
-                                     objectWidth / objectHeight,
-                                     // center[2]
-                                     center[0], center[1],
-                                     // scale[1]
-                                     scale},
-                                 inverseContainerRatio{objectHeight / objectWidth}
-  {
-    // 0.5 + (center[1] - 0.5) * inverseContainerRatio
-    __refCandle = new Candle(0, 0.5 - 0.5 * inverseContainerRatio);
-  };
+  CandlesRenderer(
+      ScreenViewState *view,
+      float screenWidth,
+      float screenHeight,
+      float objectWidth,
+      float objectHeight,
+      float center[2],
+      float scale)
+      : inverseContainerRatio{objectHeight / objectWidth},
+        constanlyUniforms{
+            // screen[1]
+            screenWidth / screenHeight,
+            // container[1]
+            objectWidth / objectHeight,
+            // center[2]
+            center[0], center[1] * inverseContainerRatio,
+            // scale[1]
+            scale},
+        sLightInfo{.radius = DEFAULT_RADIUS},
+        cRepo{new CandlesRepository(objectWidth, objectHeight, &sLightInfo)},
+        viewState{view} {};
 
   int getRenderGroupCounts();
   void registerCandle(float X, float Y);
   int mergeRenderGroups();
   int renderNextGroup();
 
-  int resetIndex();
-  void setCenter(float center[2]);
-  void setScale(float scale);
+  int prepare();
+  void updateView();
   std::vector<RenderGroup *>::iterator merge(std::vector<RenderGroup *>::iterator start, int direction);
   void merge(std::vector<RenderGroup *>::iterator start);
 
@@ -149,11 +155,16 @@ int CandlesRenderer::mergeRenderGroups()
   this->merged_render_groups.clear();
   this->pre_merged.clear();
 
-  for (auto singleGroup : this->groups)
+  for (auto it = this->range.begin; it != this->range.end; it++)
   {
-    auto g = new RenderGroup(singleGroup->topleftCandle);
-    this->pre_merged.push_back(g);
+    this->pre_merged.push_back(new RenderGroup(*(*it)));
   }
+
+  // for (auto singleGroup : this->groups)
+  // {
+  //   auto g = new RenderGroup(singleGroup->topleftCandle);
+  //   this->pre_merged.push_back(g);
+  // }
 
   std::sort(
       this->pre_merged.begin(),
@@ -173,17 +184,6 @@ int CandlesRenderer::mergeRenderGroups()
 
   return this->merged_render_groups.size();
 }
-void CandlesRenderer::registerCandle(float X, float Y)
-{
-  float projectedX = X,
-        projectedY = 0.5 + (Y - 0.5) * inverseContainerRatio;
-
-  // printf("%f, %f\n", projectedX, projectedY);
-  Candle *candle = new Candle(projectedX, projectedY);
-  RenderGroup *newGrp = new RenderGroup(candle);
-  this->groups.push_back(newGrp);
-  this->mergeRenderGroups();
-}
 
 int CandlesRenderer::renderNextGroup()
 {
@@ -197,21 +197,24 @@ int CandlesRenderer::renderNextGroup()
   return this->currentRenderingIndex;
 }
 
-int CandlesRenderer::resetIndex()
+int CandlesRenderer::prepare()
 {
   this->currentRenderingIndex = 0;
   return this->currentRenderingIndex;
 }
 
-void CandlesRenderer::setCenter(float center[2])
+void CandlesRenderer::updateView()
 {
+  float *center = this->viewState->getCenter();
+  float scale = this->viewState->getScale();
   this->centerUniform[0] = center[0];
-  this->centerUniform[1] = 0.5 + (center[1] - 0.5) * inverseContainerRatio;
-}
+  this->centerUniform[1] = center[1] * inverseContainerRatio;
 
-void CandlesRenderer::setScale(float scale)
-{
   *this->scaleUniform = scale;
+
+  float *viewBound = this->viewState->getBound();
+  this->cRepo->queryCandlesInFrame(this->range, viewBound);
+  this->mergeRenderGroups();
 }
 
 CandlesRenderer::~CandlesRenderer()

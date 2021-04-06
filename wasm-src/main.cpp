@@ -10,8 +10,8 @@
 #include "idecode.cpp"
 #include "drawer.h"
 #include "view_coord.cpp"
-#include "region_manager.cpp"
-#include "candles_manager.cpp"
+#include "region_renderer.cpp"
+#include "candles_renderer.cpp"
 
 // data to be consider when decoding huffman tree
 // { M: 316, l: 8277, v: 37, h: 38, L: 271, z: 129 }
@@ -62,15 +62,16 @@ val initialize(uintptr_t shapes_data_addr, float screenWidth, float screenHeight
       screenWidth, screenHeight,
       initCenter, initScale);
 
-  candlesRndr = new CandlesRenderer(
-      screenWidth, screenHeight,
-      regionRndr->getWidth(), regionRndr->getHeight(),
-      initCenter, initScale);
-
   view = new ScreenViewState(
       initCenter, initScale,
       regionRndr->getWidth() / regionRndr->getHeight(),
       screenWidth / screenHeight);
+
+  candlesRndr = new CandlesRenderer(
+      view,
+      screenWidth, screenHeight,
+      regionRndr->getWidth(), regionRndr->getHeight(),
+      initCenter, initScale);
 
   return getRegionUniformPtr();
 }
@@ -86,8 +87,9 @@ void handleZoomEvent(float deltaY, float mouseX, float mouseY)
   regionRndr->setCenter(ctr);
   regionRndr->setScale(scle);
 
-  candlesRndr->setCenter(ctr);
-  candlesRndr->setScale(scle);
+  candlesRndr->updateView();
+  // candlesRndr->setCenter(ctr);
+  // candlesRndr->setScale(scle);
 }
 
 void handleMoveEvent(float deltaX, float deltaY)
@@ -97,13 +99,15 @@ void handleMoveEvent(float deltaX, float deltaY)
 
   auto ctr = view->getCenter();
   regionRndr->setCenter(ctr);
-  candlesRndr->setCenter(ctr);
+
+  candlesRndr->updateView();
 }
 
 void handleClickEvent(float mouseX, float mouseY)
 {
   float *ctxPos = view->getContextPosition(mouseX, mouseY);
-  candlesRndr->registerCandle(ctxPos[0], ctxPos[1]);
+  candlesRndr->cRepo->registerCandle(ctxPos[0], ctxPos[1]);
+  candlesRndr->updateView();
 }
 
 EMSCRIPTEN_BINDINGS(MAIN)
@@ -117,7 +121,7 @@ EMSCRIPTEN_BINDINGS(MAIN)
   function("getCandlesIndividuallyRenderRectangle", &getCandlesIndividuallyRenderRectangle);
 
   function("candleRenderNext", &candleRenderNext);
-  function("candleResetIndex", &candleResetIndex);
+  function("candlePrepare", &candlePrepare);
   function("candleGetCount", &candleGetCount);
   // candleGetCount
   function("renderRegionVertices", &renderRegionVertices);

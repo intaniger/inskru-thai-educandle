@@ -26,6 +26,10 @@ struct render_group_distance_greater_than
   {
     return (gr1->distanceFromOrigin > d);
   }
+  inline bool operator()(RenderGroup *gr1, const float d)
+  {
+    return (gr1->distanceFromOrigin > d);
+  }
   inline bool operator()(RenderGroup *gr1, RenderGroup *gr2)
   {
     return (gr1->distanceFromOrigin > gr2->distanceFromOrigin);

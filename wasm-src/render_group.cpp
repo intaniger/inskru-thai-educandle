@@ -22,7 +22,10 @@
 #define Z_INDEX_UNCHANGED 0
 #define Z_INDEX_UPDATED 1
 
-Candle *__refCandle;
+typedef struct
+{
+  float radius;
+} SterotypedLightInfo;
 
 class RenderGroup
 {
@@ -30,6 +33,8 @@ private:
   std::vector<Candle *> candles;
   VertexGroup *vg;
   bool isCornerCollapseWithAnyCandleRay(RenderGroup *rhs);
+  float *refPosition;
+  SterotypedLightInfo *sLightinfo;
 
 public:
   float distanceFromOrigin;
@@ -45,11 +50,11 @@ public:
   float renderRectangle[8];
   Candle *topleftCandle, *bottomRightCandle;
 
-  RenderGroup(Candle *firstCandle)
+  RenderGroup(Candle *firstCandle, float *refPosition, SterotypedLightInfo *sLightinfo)
   {
     float bound[2][2] = {
-        {firstCandle->position[0] - firstCandle->radius, firstCandle->position[1] - firstCandle->radius},
-        {firstCandle->position[0] + firstCandle->radius, firstCandle->position[1] + firstCandle->radius},
+        {firstCandle->position[0] - sLightinfo->radius, firstCandle->position[1] - sLightinfo->radius},
+        {firstCandle->position[0] + sLightinfo->radius, firstCandle->position[1] + sLightinfo->radius},
     };
     this->mergedWith = NULL;
     this->candles.push_back(firstCandle);
@@ -57,11 +62,12 @@ public:
     this->vg = new VertexGroup(firstCandle->position, bound[0]);
     this->vg->AddVertex(bound[1][0], bound[1][1]);
 
-    this->distanceFromOrigin = distance(bound[1], __refCandle->position);
-    // length(firstCandle->position[0] - __refCandle->position[0], firstCandle->position[1] - __refCandle->position[1]);
+    this->distanceFromOrigin = distance(bound[1], refPosition);
     this->topleftCandle = firstCandle;
     this->bottomRightCandle = firstCandle;
     this->zIndex = 1;
+    this->refPosition = refPosition;
+    this->sLightinfo = sLightinfo;
 
     this->updateUniform();
   };
@@ -87,9 +93,9 @@ bool RenderGroup::isCornerCollapseWithAnyCandleRay(RenderGroup *rhs)
   for (auto &&c : this->candles)
     for (auto corner : corners)
       if (
-          distance(c->position, corner) <= c->radius ||
-          distance(c->position, rhs->topleftCandle->position) <= 2 * c->radius ||
-          distance(c->position, rhs->bottomRightCandle->position) <= 2 * c->radius)
+          distance(c->position, corner) <= sLightinfo->radius ||
+          distance(c->position, rhs->topleftCandle->position) <= 2 * sLightinfo->radius ||
+          distance(c->position, rhs->bottomRightCandle->position) <= 2 * sLightinfo->radius)
         return true;
   return false;
 }
@@ -102,10 +108,10 @@ char RenderGroup::updateZIndex(RenderGroup *rhs)
   for (auto &&candle : this->candles)
   {
     float bound[4] = {
-        candle->position[0] - candle->radius,
-        candle->position[1] - candle->radius,
-        candle->position[0] + candle->radius,
-        candle->position[1] + candle->radius,
+        candle->position[0] - sLightinfo->radius,
+        candle->position[1] - sLightinfo->radius,
+        candle->position[0] + sLightinfo->radius,
+        candle->position[1] + sLightinfo->radius,
     };
     if (isFrameCollapse(bound, rhsBound))
     {
@@ -157,7 +163,7 @@ int RenderGroup::merge(RenderGroup *rhs)
     this->bottomRightCandle = target->bottomRightCandle;
 
   float *bound = this->getBoundary();
-  this->distanceFromOrigin = distance(&bound[2], __refCandle->position);
+  this->distanceFromOrigin = distance(&bound[2], this->refPosition);
 
   target->mergedWith = this;
   this->mergedWith = NULL;
@@ -186,7 +192,7 @@ void RenderGroup::updateUniform()
 
   *this->lightNumberUniform = i / 2;
   *this->luminanceUniform = this->topleftCandle->luminance;
-  *this->radiusUniform = this->bottomRightCandle->radius;
+  *this->radiusUniform = sLightinfo->radius;
 
   float *bound = this->getBoundary();
   float leftX = bound[0],

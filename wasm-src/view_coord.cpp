@@ -14,8 +14,10 @@ public:
   float getScale();
   float *getCenter();
   float *getContextPosition(float X, float Y);
+  float *getBound();
   float _center[2];
   float _contextPosition[2];
+  float _bound[4];
 };
 
 void ScreenViewState::ZoomTo(float X, float Y, float step)
@@ -54,6 +56,28 @@ float *ScreenViewState::getContextPosition(float X, float Y)
   this->_contextPosition[0] = c[0];
   this->_contextPosition[1] = c[1];
   return this->_contextPosition;
+}
+
+float *ScreenViewState::getBound()
+{
+  float viewBoxScale = 1 / this->scale;
+  float topLeftDiff[2] = {
+      static_cast<float>(-0.5 * viewBoxScale),
+      static_cast<float>(-0.5 * viewBoxScale),
+  };
+  float rightBottomDiff[2] = {
+      static_cast<float>(0.5 * viewBoxScale),
+      static_cast<float>(0.5 * viewBoxScale),
+  };
+  Coord tlc = *(this->center) + topLeftDiff,
+        rbc = *(this->center) + rightBottomDiff;
+
+  this->_bound[0] = tlc[0];
+  this->_bound[1] = tlc[1];
+  this->_bound[2] = rbc[0];
+  this->_bound[3] = rbc[1];
+
+  return this->_bound;
 }
 
 float ScreenViewState::getScale()
