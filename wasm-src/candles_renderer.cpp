@@ -11,7 +11,7 @@
 
 #define FORWARD_MERGE 1
 #define BACKWARD_MERGE -1
-#define RG_OPTIMIZE_FACTOR 0.9
+#define RG_OPTIMIZE_FACTOR 0.8
 #define RG_ADVANCE_FACTOR 0.2
 
 class CandlesRenderer
