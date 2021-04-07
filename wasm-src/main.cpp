@@ -88,8 +88,6 @@ void handleZoomEvent(float deltaY, float mouseX, float mouseY)
   regionRndr->setScale(scle);
 
   candlesRndr->updateView();
-  // candlesRndr->setCenter(ctr);
-  // candlesRndr->setScale(scle);
 }
 
 void handleMoveEvent(float deltaX, float deltaY)
@@ -106,7 +104,7 @@ void handleMoveEvent(float deltaX, float deltaY)
 void handleClickEvent(float mouseX, float mouseY)
 {
   float *ctxPos = view->getContextPosition(mouseX, mouseY);
-  candlesRndr->cRepo->registerCandle(ctxPos[0], ctxPos[1]);
+  candlesRndr->candlesRepo->registerCandle(ctxPos[0], ctxPos[1]);
   candlesRndr->updateView();
 }
 
@@ -121,7 +119,7 @@ EMSCRIPTEN_BINDINGS(MAIN)
   function("getCandlesIndividuallyRenderRectangle", &getCandlesIndividuallyRenderRectangle);
 
   function("candleRenderNext", &candleRenderNext);
-  function("candlePrepare", &candlePrepare);
+  function("candlePrepareRender", &candlePrepareRender);
   function("candleGetCount", &candleGetCount);
   // candleGetCount
   function("renderRegionVertices", &renderRegionVertices);

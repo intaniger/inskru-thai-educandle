@@ -11,6 +11,8 @@
 
 #define FORWARD_MERGE 1
 #define BACKWARD_MERGE -1
+#define RG_OPTIMIZE_FACTOR 0.9
+#define RG_ADVANCE_FACTOR 0.2
 
 class CandlesRenderer
 {
@@ -23,8 +25,12 @@ private:
   ScreenViewState *viewState;
   CandlesRange range;
 
+  float mergedGroupsBound[4];
+
+  void toAdvancedBound(float (&)[4], const float *);
+
 public:
-  CandlesRepository *const cRepo;
+  CandlesRepository *const candlesRepo;
   SterotypedLightInfo sLightInfo;
   float constanlyUniforms[5];
   float *const screenRatioUniform = constanlyUniforms;
@@ -66,21 +72,74 @@ public:
             // scale[1]
             scale},
         sLightInfo{.radius = DEFAULT_RADIUS},
-        cRepo{new CandlesRepository(objectWidth, objectHeight, &sLightInfo)},
+        candlesRepo{new CandlesRepository(objectWidth, objectHeight, &sLightInfo)},
         viewState{view} {};
 
   int getRenderGroupCounts();
-  void registerCandle(float X, float Y);
-  int mergeRenderGroups();
+  int prepareRender();
   int renderNextGroup();
 
-  int prepare();
-  void updateView();
+  int mergeRenderGroups();
   std::vector<RenderGroup *>::iterator merge(std::vector<RenderGroup *>::iterator start, int direction);
   void merge(std::vector<RenderGroup *>::iterator start);
 
+  void updateView();
+  bool shouldUpdateRenderGroups(const float *);
+  void updateRenderGroups(const float *);
+
+  void registerCandle(float X, float Y);
   ~CandlesRenderer();
 };
+
+void CandlesRenderer::toAdvancedBound(float (&out)[4], const float *bound)
+{
+  out[0] = bound[0] - (RG_ADVANCE_FACTOR * (bound[2] - bound[0]));
+  out[1] = bound[1] - (RG_ADVANCE_FACTOR * (bound[3] - bound[1]));
+  out[2] = bound[2] + (RG_ADVANCE_FACTOR * (bound[2] - bound[0]));
+  out[3] = bound[3] + (RG_ADVANCE_FACTOR * (bound[3] - bound[1]));
+}
+
+void CandlesRenderer::updateRenderGroups(const float *viewBound)
+{
+  this->toAdvancedBound(this->mergedGroupsBound, viewBound);
+  this->candlesRepo->queryCandlesInFrame(this->range, this->mergedGroupsBound);
+  this->mergeRenderGroups();
+}
+
+bool CandlesRenderer::shouldUpdateRenderGroups(const float *viewBound)
+{
+  float advBound[4];
+
+  this->toAdvancedBound(advBound, viewBound);
+
+  CandlesRange r;
+  bool doesViewBoundIsSubsetToMergedBound = isFrameSubset(viewBound, mergedGroupsBound);
+
+  if (!doesViewBoundIsSubsetToMergedBound)
+  {
+    // printf("This view is not subset of rendered one!\n");
+    return true;
+  }
+
+  // re-fetch candles in current merged bound
+  this->candlesRepo->queryCandlesInFrame(r, mergedGroupsBound);
+
+  // if (r.begin != this->range.begin || r.end != this->range.end)
+  if ((r.end - r.begin) != (this->range.end - this->range.begin))
+  {
+    // printf("Nah, some new candle(s)'d been added.\n");
+    return true;
+  }
+
+  this->candlesRepo->queryCandlesInFrame(r, advBound);
+  if ((r.end - r.begin) <= RG_OPTIMIZE_FACTOR * (this->range.end - this->range.begin))
+  {
+    // printf("Time to optimize! %lu<-%lu\n", (r.end - r.begin), (this->range.end - this->range.begin));
+    return true;
+  }
+
+  return false;
+}
 
 int CandlesRenderer::getRenderGroupCounts()
 {
@@ -160,12 +219,6 @@ int CandlesRenderer::mergeRenderGroups()
     this->pre_merged.push_back(new RenderGroup(*(*it)));
   }
 
-  // for (auto singleGroup : this->groups)
-  // {
-  //   auto g = new RenderGroup(singleGroup->topleftCandle);
-  //   this->pre_merged.push_back(g);
-  // }
-
   std::sort(
       this->pre_merged.begin(),
       this->pre_merged.end(),
@@ -197,7 +250,7 @@ int CandlesRenderer::renderNextGroup()
   return this->currentRenderingIndex;
 }
 
-int CandlesRenderer::prepare()
+int CandlesRenderer::prepareRender()
 {
   this->currentRenderingIndex = 0;
   return this->currentRenderingIndex;
@@ -213,8 +266,8 @@ void CandlesRenderer::updateView()
   *this->scaleUniform = scale;
 
   float *viewBound = this->viewState->getBound();
-  this->cRepo->queryCandlesInFrame(this->range, viewBound);
-  this->mergeRenderGroups();
+  if (this->shouldUpdateRenderGroups(viewBound))
+    this->updateRenderGroups(viewBound);
 }
 
 CandlesRenderer::~CandlesRenderer()

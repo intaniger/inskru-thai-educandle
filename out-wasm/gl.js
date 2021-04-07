@@ -169,14 +169,20 @@ const initializeRegionProgram = (uniforms, vertices) => {
     }
   })
 
-  // document.addEventListener('keypress', (e) => {
-  //   if ((e.code = 'Space')) {
-  //     RANDOMIZED_TESTCASE.forEach(([a, b], i) => {
-  //       Module.handleClickEvent(Math.random(), Math.random())
-  //       render(gl, window.region_prg, window.candle_prg)
-  //     })
-  //   }
-  // })
+  document.addEventListener('keypress', (e) => {
+    const factor = (uniforms[0] / uniforms[1]) * (canvas.height / canvas.width)
+    if ((e.code = 'Space')) {
+      RANDOMIZED_TESTCASE.forEach(([a, b], i) => {
+        setTimeout(() => {
+          Module.handleClickEvent(
+            0.5 + (Math.random() - 0.5) * factor,
+            Math.random(),
+          )
+          render(gl, window.region_prg, window.candle_prg)
+        }, i * 10)
+      })
+    }
+  })
 }
 
 let candleVertices = new Float32Array()
@@ -261,7 +267,7 @@ async function render(
     gl.clear(gl.COLOR_BUFFER_BIT)
 
     gl.useProgram(candle_program)
-    Module.candlePrepare()
+    Module.candlePrepareRender()
     const candleCount = Module.candleGetCount()
 
     const centerLoc = gl.getUniformLocation(candle_program, 'center')

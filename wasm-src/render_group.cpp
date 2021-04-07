@@ -50,6 +50,30 @@ public:
   float renderRectangle[8];
   Candle *topleftCandle, *bottomRightCandle;
 
+  RenderGroup(RenderGroup &rg)
+  {
+    this->mergedWith = NULL;
+    this->candles = rg.candles;
+    this->topleftCandle = rg.topleftCandle;
+    this->bottomRightCandle = rg.bottomRightCandle;
+    this->zIndex = rg.zIndex;
+    this->refPosition = rg.refPosition;
+    this->sLightinfo = rg.sLightinfo;
+    this->distanceFromOrigin = rg.distanceFromOrigin;
+
+    float *oldBound = rg.getBoundary();
+    float bound[2][2] = {
+        {oldBound[0], oldBound[1]},
+        {oldBound[2], oldBound[3]},
+    };
+    this->vg = new VertexGroup(
+        this->topleftCandle->position,
+        bound[0]);
+    this->vg->AddVertex(bound[1][0], bound[1][1]);
+
+    this->updateUniform();
+  }
+
   RenderGroup(Candle *firstCandle, float *refPosition, SterotypedLightInfo *sLightinfo)
   {
     float bound[2][2] = {
@@ -115,8 +139,6 @@ char RenderGroup::updateZIndex(RenderGroup *rhs)
     };
     if (isFrameCollapse(bound, rhsBound))
     {
-      // this->zIndex = rhs->zIndex + 1;
-      // rhs->zIndex = this->zIndex + 1;
       this->zIndex += rhs->zIndex;
       return Z_INDEX_UPDATED;
     }
@@ -131,7 +153,7 @@ char RenderGroup::shouldMerge(RenderGroup *rhs)
   float *bound = this->getBoundary();
   float *rhsBound = rhs->getBoundary();
 
-  return isFrameCollapse(bound, rhsBound) ? isCornerCollapseWithAnyCandleRay(rhs) ? SHOULD_MERGE : COLLAPSE_ONLY : NO_MERGE;
+  return isFrameCollapse(bound, rhsBound) ? (isCornerCollapseWithAnyCandleRay(rhs) ? SHOULD_MERGE : COLLAPSE_ONLY) : NO_MERGE;
 }
 
 int RenderGroup::merge(RenderGroup *rhs)

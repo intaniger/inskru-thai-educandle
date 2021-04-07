@@ -35,9 +35,9 @@ val getCandlesIndividuallyRenderRectangle()
   return val(typed_memory_view(8, candlesRndr->renderRectangle));
 }
 
-int candlePrepare()
+int candlePrepareRender()
 {
-  return candlesRndr->prepare();
+  return candlesRndr->prepareRender();
 }
 
 int candleGetCount()

@@ -74,7 +74,7 @@ public:
         info{info} {};
 
   int registerCandle(float X, float Y);
-  void queryCandlesInFrame(CandlesRange &r, float *bound);
+  void queryCandlesInFrame(CandlesRange &r, const float *bound);
   ~CandlesRepository();
 };
 
@@ -93,7 +93,7 @@ int CandlesRepository::registerCandle(float X, float Y)
   return this->groups.size();
 }
 
-void CandlesRepository::queryCandlesInFrame(CandlesRange &r, float *bound)
+void CandlesRepository::queryCandlesInFrame(CandlesRange &r, const float *bound)
 {
   float transformedBound[4] = {
       bound[0],
@@ -104,17 +104,8 @@ void CandlesRepository::queryCandlesInFrame(CandlesRange &r, float *bound)
   float minR = findShortestDistance(this->referencePoint, transformedBound),
         maxR = findLongestDistance(this->referencePoint, transformedBound);
 
-  // printf("%f - %f:%f\n", minR, maxR, maxR + info->radius);
-  // printf("%f,%f => %f,%f\n", transformedBound[0], transformedBound[1], transformedBound[2], transformedBound[3]);
-
   r.begin = std::lower_bound(this->groups.begin(), this->groups.end(), minR, render_group_distance_less_than());
   r.end = std::upper_bound(this->groups.begin(), this->groups.end(), maxR, render_group_distance_greater_than());
-
-  // printf("(%lu,%lu) / %lu\n", r.begin - this->groups.begin(), r.end - this->groups.begin(), this->groups.size());
-  // for (auto it = r.begin; it != r.end; it++)
-  // {
-  //   printf("Read: %f \n", (*it)->distanceFromOrigin);
-  // }
 }
 
 CandlesRepository::~CandlesRepository()

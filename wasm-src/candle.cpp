@@ -1,5 +1,5 @@
 #define DEFAULT_LUMINANCE 0.5
-#define DEFAULT_RADIUS 0.05
+#define DEFAULT_RADIUS 0.01
 
 class Candle
 {
