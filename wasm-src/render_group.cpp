@@ -48,14 +48,11 @@ public:
 
   float lightPositions[256];
   float renderRectangle[8];
-  Candle *topleftCandle, *bottomRightCandle;
 
   RenderGroup(RenderGroup &rg)
   {
     this->mergedWith = NULL;
     this->candles = rg.candles;
-    this->topleftCandle = rg.topleftCandle;
-    this->bottomRightCandle = rg.bottomRightCandle;
     this->zIndex = rg.zIndex;
     this->refPosition = rg.refPosition;
     this->sLightinfo = rg.sLightinfo;
@@ -67,9 +64,7 @@ public:
         {oldBound[0], oldBound[1]},
         {oldBound[2], oldBound[3]},
     };
-    this->vg = new VertexGroup(
-        this->topleftCandle->position,
-        bound[0]);
+    this->vg = new VertexGroup(NULL, bound[0]);
     this->vg->AddVertex(bound[1][0], bound[1][1]);
 
     this->updateUniform();
@@ -89,8 +84,6 @@ public:
 
     this->topLeftDistanceFromOrigin = distance(bound[0], refPosition);
     this->bottomRightDistanceFromOrigin = distance(bound[1], refPosition);
-    this->topleftCandle = firstCandle;
-    this->bottomRightCandle = firstCandle;
     this->zIndex = 1;
     this->refPosition = refPosition;
     this->sLightinfo = sLightinfo;
@@ -165,14 +158,6 @@ int RenderGroup::merge(RenderGroup *rhs)
   this->vg->AddVertex(targetBound[0], targetBound[1]);
   this->vg->AddVertex(targetBound[2], targetBound[3]);
 
-  float oldTopLeftCandleDistance = distance(this->topleftCandle->position, refPosition);
-  if (distance(target->topleftCandle->position, refPosition) < oldTopLeftCandleDistance)
-    this->topleftCandle = target->topleftCandle;
-
-  float oldBottomRightCandleDistance = distance(this->bottomRightCandle->position, refPosition);
-  if (distance(target->bottomRightCandle->position, refPosition) > oldBottomRightCandleDistance)
-    this->bottomRightCandle = target->bottomRightCandle;
-
   float *bound = this->getBoundary();
   this->topLeftDistanceFromOrigin = distance(&bound[0], this->refPosition);
   this->bottomRightDistanceFromOrigin = distance(&bound[2], this->refPosition);
@@ -201,7 +186,7 @@ void RenderGroup::updateUniform()
   }
 
   *this->lightNumberUniform = i / 2;
-  *this->luminanceUniform = this->topleftCandle->luminance;
+  *this->luminanceUniform = this->candles[0]->luminance;
   *this->radiusUniform = sLightinfo->radius;
 
   float *bound = this->getBoundary();
