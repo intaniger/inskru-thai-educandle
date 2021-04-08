@@ -11,42 +11,6 @@ typedef struct
   std::vector<RenderGroup *>::iterator end;
 } CandlesRange;
 
-float findShortestDistance(float pt[2], float bound[4])
-{
-  float ptx = pt[0],
-        pty = pt[1],
-        bx1 = bound[0],
-        bx2 = bound[2],
-        by1 = bound[1],
-        by2 = bound[3];
-
-  if (between(ptx, bx1, bx2))
-    if (between(pty, by1, by2))
-      return 0;
-    else
-      return std::min(abs(pty - by1), abs(pty - by2));
-  else if (between(pty, by1, by2))
-    return std::min(abs(ptx - bx1), abs(ptx - bx2));
-  else
-    return length(
-        std::min(abs(ptx - bx1), abs(ptx - bx2)),
-        std::min(abs(pty - by1), abs(pty - by2)));
-}
-
-float findLongestDistance(float pt[2], float bound[4])
-{
-  float ptx = pt[0],
-        pty = pt[1],
-        bx1 = bound[0],
-        bx2 = bound[2],
-        by1 = bound[1],
-        by2 = bound[3];
-
-  return length(
-      std::max(abs(ptx - bx1), abs(ptx - bx2)),
-      std::max(abs(pty - by1), abs(pty - by2)));
-}
-
 class CandlesRepository
 {
 private:
