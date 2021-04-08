@@ -27,7 +27,7 @@ private:
 
   float mergedGroupsBound[4];
 
-  void toAdvancedBound(float (&)[4], const float *);
+  void toMarginnedBound(float (&)[4], const float *);
 
 public:
   CandlesRepository *const candlesRepo;
@@ -91,7 +91,7 @@ public:
   ~CandlesRenderer();
 };
 
-void CandlesRenderer::toAdvancedBound(float (&out)[4], const float *bound)
+void CandlesRenderer::toMarginnedBound(float (&out)[4], const float *bound)
 {
   out[0] = bound[0] - (RG_ADVANCE_FACTOR * (bound[2] - bound[0]));
   out[1] = bound[1] - (RG_ADVANCE_FACTOR * (bound[3] - bound[1]));
@@ -101,7 +101,7 @@ void CandlesRenderer::toAdvancedBound(float (&out)[4], const float *bound)
 
 void CandlesRenderer::updateRenderGroups(const float *viewBound)
 {
-  this->toAdvancedBound(this->mergedGroupsBound, viewBound);
+  this->toMarginnedBound(this->mergedGroupsBound, viewBound);
   this->candlesRepo->queryCandlesInFrame(this->range, this->mergedGroupsBound);
   this->mergeRenderGroups();
 }
@@ -110,7 +110,7 @@ bool CandlesRenderer::shouldUpdateRenderGroups(const float *viewBound)
 {
   float advBound[4];
 
-  this->toAdvancedBound(advBound, viewBound);
+  this->toMarginnedBound(advBound, viewBound);
 
   CandlesRange r;
   bool doesViewBoundIsSubsetToMergedBound = isFrameSubset(viewBound, mergedGroupsBound);
@@ -153,11 +153,25 @@ void CandlesRenderer::merge(std::vector<RenderGroup *>::iterator start)
 
 std::vector<RenderGroup *>::iterator CandlesRenderer::merge(std::vector<RenderGroup *>::iterator start, int direction)
 {
-  // assumed that pre_merged is sorted asc-ly before.
   auto tainted = this->pre_merged.end(),
+       it = direction == FORWARD_MERGE ? this->pre_merged.begin() : this->pre_merged.end() - 1,
        term = direction == FORWARD_MERGE ? this->pre_merged.end() : this->pre_merged.begin() - 1;
 
-  for (auto it = start; it != term; it += direction)
+  if (direction == FORWARD_MERGE)
+    std::sort(
+        this->pre_merged.begin(),
+        this->pre_merged.end(),
+        render_group_tl_distance_less_than());
+  else
+    std::sort(
+        this->pre_merged.begin(),
+        this->pre_merged.end(),
+        render_group_br_distance_less_than());
+
+  for (; *it != *start; it += direction)
+    continue;
+
+  for (; it != term; it += direction)
   {
     RenderGroup *otherGroup, *consideringGroup;
     float *consideringBound, *othersBound;
@@ -176,8 +190,9 @@ std::vector<RenderGroup *>::iterator CandlesRenderer::merge(std::vector<RenderGr
     for (
         auto dit = it;
         !(dit == term ||
-          abs(otherGroup->distanceFromOrigin - consideringGroup->distanceFromOrigin) >
-              std::max<float>(consideringBoundDistance, distance(&othersBound[0], &othersBound[2])));
+          (direction == FORWARD_MERGE ? abs(otherGroup->topLeftDistanceFromOrigin - consideringGroup->topLeftDistanceFromOrigin)
+                                      : abs(otherGroup->bottomRightDistanceFromOrigin - consideringGroup->bottomRightDistanceFromOrigin)) >
+              consideringBoundDistance);
         dit += direction)
     {
       otherGroup = (*dit);
@@ -191,6 +206,9 @@ std::vector<RenderGroup *>::iterator CandlesRenderer::merge(std::vector<RenderGr
       case SHOULD_MERGE:
         if (otherGroup->merge(consideringGroup) == OTHER_MERGED)
           tainted = dit;
+
+        consideringBound = consideringGroup->getBoundary();
+        consideringBoundDistance = distance(&consideringBound[0], &consideringBound[2]);
         break;
 
       case COLLAPSE_ONLY:
@@ -218,11 +236,6 @@ int CandlesRenderer::mergeRenderGroups()
   {
     this->pre_merged.push_back(new RenderGroup(*(*it)));
   }
-
-  std::sort(
-      this->pre_merged.begin(),
-      this->pre_merged.end(),
-      render_group_distance_less_than());
 
   this->merge(this->pre_merged.begin());
 

@@ -37,7 +37,7 @@ private:
   SterotypedLightInfo *sLightinfo;
 
 public:
-  float distanceFromOrigin;
+  float topLeftDistanceFromOrigin, bottomRightDistanceFromOrigin;
   unsigned int zIndex;
   RenderGroup *mergedWith;
 
@@ -59,7 +59,8 @@ public:
     this->zIndex = rg.zIndex;
     this->refPosition = rg.refPosition;
     this->sLightinfo = rg.sLightinfo;
-    this->distanceFromOrigin = rg.distanceFromOrigin;
+    this->bottomRightDistanceFromOrigin = rg.bottomRightDistanceFromOrigin;
+    this->topLeftDistanceFromOrigin = rg.topLeftDistanceFromOrigin;
 
     float *oldBound = rg.getBoundary();
     float bound[2][2] = {
@@ -86,7 +87,8 @@ public:
     this->vg = new VertexGroup(firstCandle->position, bound[0]);
     this->vg->AddVertex(bound[1][0], bound[1][1]);
 
-    this->distanceFromOrigin = distance(bound[1], refPosition);
+    this->topLeftDistanceFromOrigin = distance(bound[0], refPosition);
+    this->bottomRightDistanceFromOrigin = distance(bound[1], refPosition);
     this->topleftCandle = firstCandle;
     this->bottomRightCandle = firstCandle;
     this->zIndex = 1;
@@ -139,7 +141,7 @@ char RenderGroup::updateZIndex(RenderGroup *rhs)
     };
     if (isFrameCollapse(bound, rhsBound))
     {
-      this->zIndex += rhs->zIndex;
+      this->zIndex = std::max<unsigned int>(this->zIndex, rhs->zIndex + 1);
       return Z_INDEX_UPDATED;
     }
   }
@@ -185,7 +187,8 @@ int RenderGroup::merge(RenderGroup *rhs)
     this->bottomRightCandle = target->bottomRightCandle;
 
   float *bound = this->getBoundary();
-  this->distanceFromOrigin = distance(&bound[2], this->refPosition);
+  this->topLeftDistanceFromOrigin = distance(&bound[0], this->refPosition);
+  this->bottomRightDistanceFromOrigin = distance(&bound[2], this->refPosition);
 
   target->mergedWith = this;
   this->mergedWith = NULL;

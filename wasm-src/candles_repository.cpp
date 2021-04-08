@@ -89,7 +89,7 @@ int CandlesRepository::registerCandle(float X, float Y)
   std::sort(
       this->groups.begin(),
       this->groups.end(),
-      render_group_distance_less_than());
+      render_group_br_distance_less_than());
   return this->groups.size();
 }
 
@@ -104,8 +104,8 @@ void CandlesRepository::queryCandlesInFrame(CandlesRange &r, const float *bound)
   float minR = findShortestDistance(this->referencePoint, transformedBound),
         maxR = findLongestDistance(this->referencePoint, transformedBound);
 
-  r.begin = std::lower_bound(this->groups.begin(), this->groups.end(), minR, render_group_distance_less_than());
-  r.end = std::upper_bound(this->groups.begin(), this->groups.end(), maxR, render_group_distance_greater_than());
+  r.begin = std::lower_bound(this->groups.begin(), this->groups.end(), minR, render_group_br_distance_less_than());
+  r.end = std::upper_bound(this->groups.begin(), this->groups.end(), maxR, render_group_br_distance_greater_than());
 }
 
 CandlesRepository::~CandlesRepository()
