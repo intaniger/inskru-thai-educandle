@@ -28,6 +28,8 @@ private:
   float mergedGroupsBound[4];
 
   void toMarginnedBound(float (&)[4], const float *);
+  std::vector<RenderGroup *>::iterator merge(std::vector<RenderGroup *>::iterator start, int direction);
+  void updateZIndice(std::vector<RenderGroup *>::iterator start);
 
 public:
   CandlesRepository *const candlesRepo;
@@ -80,7 +82,6 @@ public:
   int renderNextGroup();
 
   int mergeRenderGroups();
-  std::vector<RenderGroup *>::iterator merge(std::vector<RenderGroup *>::iterator start, int direction);
   void merge(std::vector<RenderGroup *>::iterator start);
 
   void updateView();
@@ -146,9 +147,53 @@ int CandlesRenderer::getRenderGroupCounts()
   return this->merged_render_groups.size();
 }
 
+void CandlesRenderer::updateZIndice(std::vector<RenderGroup *>::iterator start)
+{
+  std::sort(
+      start,
+      this->pre_merged.end(),
+      render_group_tl_distance_less_than());
+
+  for (auto it = start; it != this->pre_merged.end(); it++)
+  {
+
+    RenderGroup *otherGroup, *consideringGroup;
+    float *consideringBound, *othersBound;
+
+    consideringGroup = (*it);
+    consideringBound = consideringGroup->getBoundary();
+
+    if (consideringGroup->mergedWith != NULL)
+      continue;
+
+    otherGroup = consideringGroup;
+    othersBound = otherGroup->getBoundary();
+
+    for (
+        auto dit = it;
+        !(dit == this->pre_merged.end() ||
+          otherGroup->topLeftDistanceFromOrigin >= consideringGroup->bottomRightDistanceFromOrigin);
+        dit++)
+    {
+      otherGroup = (*dit);
+      othersBound = otherGroup->getBoundary();
+
+      if (otherGroup->mergedWith != NULL)
+        continue;
+
+      if (consideringGroup->isCollapse(otherGroup))
+        if (consideringGroup->updateZIndex(otherGroup) == Z_INDEX_UNCHANGED)
+          otherGroup->updateZIndex(consideringGroup);
+    }
+  }
+}
+
 void CandlesRenderer::merge(std::vector<RenderGroup *>::iterator start)
 {
   this->merge(start, FORWARD_MERGE);
+
+  // Post-processing: assign z-index to those unmerged but overlapped groups
+  this->updateZIndice(start);
 }
 
 std::vector<RenderGroup *>::iterator CandlesRenderer::merge(std::vector<RenderGroup *>::iterator start, int direction)
@@ -174,51 +219,28 @@ std::vector<RenderGroup *>::iterator CandlesRenderer::merge(std::vector<RenderGr
   for (; it != term; it += direction)
   {
     RenderGroup *otherGroup, *consideringGroup;
-    float *consideringBound, *othersBound;
-    float consideringBoundDistance;
 
     consideringGroup = (*it);
-    consideringBound = consideringGroup->getBoundary();
-    consideringBoundDistance = distance(&consideringBound[0], &consideringBound[2]);
+    otherGroup = consideringGroup;
 
     if (consideringGroup->mergedWith != NULL)
       continue;
 
-    otherGroup = consideringGroup;
-    othersBound = otherGroup->getBoundary();
-
     for (
         auto dit = it;
         !(dit == term ||
-          (direction == FORWARD_MERGE ? abs(otherGroup->topLeftDistanceFromOrigin - consideringGroup->topLeftDistanceFromOrigin)
-                                      : abs(otherGroup->bottomRightDistanceFromOrigin - consideringGroup->bottomRightDistanceFromOrigin)) >
-              consideringBoundDistance);
+          (direction == FORWARD_MERGE ? (otherGroup->topLeftDistanceFromOrigin >= consideringGroup->bottomRightDistanceFromOrigin)
+                                      : (otherGroup->bottomRightDistanceFromOrigin <= consideringGroup->topLeftDistanceFromOrigin)));
         dit += direction)
     {
       otherGroup = (*dit);
-      othersBound = otherGroup->getBoundary();
 
       if (otherGroup->mergedWith != NULL)
         continue;
 
-      switch (otherGroup->shouldMerge(consideringGroup))
-      {
-      case SHOULD_MERGE:
-        if (otherGroup->merge(consideringGroup) == OTHER_MERGED)
+      if (consideringGroup->shouldMerge(otherGroup))
+        if (consideringGroup->merge(otherGroup) == OTHER_MERGED)
           tainted = dit;
-
-        consideringBound = consideringGroup->getBoundary();
-        consideringBoundDistance = distance(&consideringBound[0], &consideringBound[2]);
-        break;
-
-      case COLLAPSE_ONLY:
-        if (otherGroup->updateZIndex(consideringGroup) == Z_INDEX_UNCHANGED)
-          consideringGroup->updateZIndex(otherGroup);
-        break;
-
-      default:
-        break;
-      }
     }
   }
   return tainted == this->pre_merged.end() ? tainted : this->merge(tainted, direction * -1);

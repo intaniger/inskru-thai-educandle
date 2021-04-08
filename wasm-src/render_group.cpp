@@ -98,7 +98,8 @@ public:
     this->updateUniform();
   };
   float *getBoundary();
-  char shouldMerge(RenderGroup *rhs);
+  bool shouldMerge(RenderGroup *rhs);
+  bool isCollapse(RenderGroup *rhs);
   int merge(RenderGroup *rhs);
 
   char updateZIndex(RenderGroup *rhs);
@@ -110,19 +111,15 @@ bool RenderGroup::isCornerCollapseWithAnyCandleRay(RenderGroup *rhs)
 {
   float *rhsBound = rhs->getBoundary();
 
-  float corners[4][2] = {
-      {rhsBound[0], rhsBound[1]},
-      {rhsBound[0], rhsBound[3]},
-      {rhsBound[2], rhsBound[1]},
-      {rhsBound[2], rhsBound[3]},
-  };
-  for (auto &&c : this->candles)
-    for (auto corner : corners)
-      if (
-          distance(c->position, corner) <= sLightinfo->radius ||
-          distance(c->position, rhs->topleftCandle->position) <= 2 * sLightinfo->radius ||
-          distance(c->position, rhs->bottomRightCandle->position) <= 2 * sLightinfo->radius)
+  for (auto &&thisCandle : this->candles)
+  {
+    if (findShortestDistance(thisCandle->position, rhsBound) <= sLightinfo->radius)
+      return true;
+    for (auto &&rCandle : rhs->candles)
+      if (distance(thisCandle->position, rCandle->position) <= 2 * sLightinfo->radius)
         return true;
+  }
+
   return false;
 }
 
@@ -133,15 +130,9 @@ char RenderGroup::updateZIndex(RenderGroup *rhs)
 
   for (auto &&candle : this->candles)
   {
-    float bound[4] = {
-        candle->position[0] - sLightinfo->radius,
-        candle->position[1] - sLightinfo->radius,
-        candle->position[0] + sLightinfo->radius,
-        candle->position[1] + sLightinfo->radius,
-    };
-    if (isFrameCollapse(bound, rhsBound))
+    if (findShortestDistance(candle->position, rhsBound) < sLightinfo->radius)
     {
-      this->zIndex = std::max<unsigned int>(this->zIndex, rhs->zIndex + 1);
+      this->zIndex += rhs->zIndex;
       return Z_INDEX_UPDATED;
     }
   }
@@ -149,24 +140,21 @@ char RenderGroup::updateZIndex(RenderGroup *rhs)
   return Z_INDEX_UNCHANGED;
 }
 
-char RenderGroup::shouldMerge(RenderGroup *rhs)
+bool RenderGroup::shouldMerge(RenderGroup *rhs)
 {
+  return isFrameCollapse(this->getBoundary(), rhs->getBoundary()) && this->isCornerCollapseWithAnyCandleRay(rhs);
+}
 
-  float *bound = this->getBoundary();
-  float *rhsBound = rhs->getBoundary();
-
-  return isFrameCollapse(bound, rhsBound) ? (isCornerCollapseWithAnyCandleRay(rhs) ? SHOULD_MERGE : COLLAPSE_ONLY) : NO_MERGE;
+bool RenderGroup::isCollapse(RenderGroup *rhs)
+{
+  return isFrameCollapse(this->getBoundary(), rhs->getBoundary());
 }
 
 int RenderGroup::merge(RenderGroup *rhs)
 {
   RenderGroup *target = rhs;
-  size_t offset = 0;
   while (target->mergedWith != NULL)
-  {
     target = target->mergedWith;
-    offset += 1;
-  }
 
   if (target == this)
     return SELF_MERGED;
@@ -174,16 +162,15 @@ int RenderGroup::merge(RenderGroup *rhs)
   this->candles.insert(this->candles.end(), target->candles.begin(), target->candles.end());
   float *targetBound = target->vg->getBoundary();
 
-  auto change = this->vg->AddVertex(targetBound[0], targetBound[1]);
-  if (change & TOPLEFT_CHANGED)
-    this->topleftCandle = target->topleftCandle;
-  if (change & BOTTOMRIGHT_CHANGED)
-    this->bottomRightCandle = target->topleftCandle;
+  this->vg->AddVertex(targetBound[0], targetBound[1]);
+  this->vg->AddVertex(targetBound[2], targetBound[3]);
 
-  change = this->vg->AddVertex(targetBound[2], targetBound[3]);
-  if (change & TOPLEFT_CHANGED)
-    this->topleftCandle = target->bottomRightCandle;
-  if (change & BOTTOMRIGHT_CHANGED)
+  float oldTopLeftCandleDistance = distance(this->topleftCandle->position, refPosition);
+  if (distance(target->topleftCandle->position, refPosition) < oldTopLeftCandleDistance)
+    this->topleftCandle = target->topleftCandle;
+
+  float oldBottomRightCandleDistance = distance(this->bottomRightCandle->position, refPosition);
+  if (distance(target->bottomRightCandle->position, refPosition) > oldBottomRightCandleDistance)
     this->bottomRightCandle = target->bottomRightCandle;
 
   float *bound = this->getBoundary();
@@ -193,8 +180,6 @@ int RenderGroup::merge(RenderGroup *rhs)
   target->mergedWith = this;
   this->mergedWith = NULL;
   target->candles.clear();
-
-  this->zIndex = std::min<unsigned int>(this->zIndex, rhs->zIndex);
   this->updateUniform();
   return OTHER_MERGED;
 }
