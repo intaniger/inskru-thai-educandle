@@ -69,7 +69,7 @@ void CandlesRepository::queryCandlesInFrame(CandlesRange &r, const float *bound)
         maxR = findLongestDistance(this->referencePoint, transformedBound);
 
   r.begin = std::lower_bound(this->groups.begin(), this->groups.end(), minR, render_group_br_distance_less_than());
-  r.end = std::upper_bound(this->groups.begin(), this->groups.end(), maxR, render_group_br_distance_greater_than());
+  r.end = std::upper_bound(this->groups.begin(), this->groups.end(), maxR + 2 * info->radius, render_group_br_distance_greater_than());
 }
 
 CandlesRepository::~CandlesRepository()
